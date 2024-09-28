@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endless Journey Game</title>
+    <style>
+        #gameCanvas {
+            border: 1px solid black;
+        }
+        #dialogueBox {
+            width: 300px;
+            height: 100px;
+            border: 1px solid black;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div id="dialogueBox"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const dialogueBox = document.getElementById('dialogueBox');
+
+        let playerX = 0;
+        let playerY = 200;
+
+        function drawPlayer() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(playerX, playerY, 50, 50);
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            playerX += 1;
+            if (playerX > canvas.width) {
+                playerX = 0;
+            }
+            requestAnimationFrame(update);
+        }
+
+        function generateDialogue() {
+            // This is where you'd integrate with OpenAI API
+            dialogueBox.textContent = "Hello traveler! What brings you to these parts?";
+        }
+
+        canvas.addEventListener('click', generateDialogue);
+
+        update();
+    </script>
+</body>
+</html>
