@@ -5,53 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Endless Journey Game</title>
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            position: relative;
+        }
         #gameCanvas {
-            border: 1px solid black;
+            border: 1px solid #000;
         }
         #dialogueBox {
-            width: 300px;
-            height: 100px;
-            border: 1px solid black;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #000;
             padding: 10px;
-            margin-top: 10px;
+            font-family: Arial, sans-serif;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
-    <div id="dialogueBox"></div>
-
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const dialogueBox = document.getElementById('dialogueBox');
-
-        let playerX = 0;
-        let playerY = 200;
-
-        function drawPlayer() {
-            ctx.fillStyle = 'blue';
-            ctx.fillRect(playerX, playerY, 50, 50);
-        }
-
-        function update() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawPlayer();
-            playerX += 1;
-            if (playerX > canvas.width) {
-                playerX = 0;
-            }
-            requestAnimationFrame(update);
-        }
-
-        function generateDialogue() {
-            // This is where you'd integrate with OpenAI API
-            dialogueBox.textContent = "Hello traveler! What brings you to these parts?";
-        }
-
-        canvas.addEventListener('click', generateDialogue);
-
-        update();
-    </script>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="dialogueBox"></div>
+    </div>
+    <script src="game.js"></script>
 </body>
 </html>
