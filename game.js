@@ -1,9 +1,121 @@
-// ... (keep the Character, Player, and NPC classes from before)
+class Character {
+    constructor(x, y, width, height, name) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.name = name;
+        this.frame = 0;
+    }
+
+    draw(ctx, sprite) {
+        ctx.drawImage(sprite, this.frame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+        ctx.fillStyle = 'black';
+        ctx.font = '12px Arial';
+        ctx.fillText(this.name, this.x, this.y - 5);
+    }
+}
+
+class Player extends Character {
+    constructor(x, y) {
+        super(x, y, 30, 50, 'Player');
+        this.speed = 2;
+    }
+
+    move() {
+        this.x += this.speed;
+        this.frame = (this.frame + 1) % 2;
+        if (this.x > game.canvas.width) {
+            this.x = -this.width;
+        }
+    }
+}
+
+class NPC extends Character {
+    constructor(x, y, name) {
+        super(x, y, 30, 50, name);
+        this.faceImage = null;
+    }
+
+    draw(ctx, sprite) {
+        super.draw(ctx, sprite);
+        if (this.faceImage) {
+            ctx.drawImage(this.faceImage, this.x, this.y - 30, 30, 30);
+        }
+    }
+}
+
+class DialogueManager {
+    constructor() {
+        this.dialogueQueue = [];
+        this.currentDialogue = null;
+        this.dialogueBox = document.getElementById('dialogueBox');
+    }
+
+    addDialogue(speaker, text) {
+        this.dialogueQueue.push({ speaker, text });
+        if (!this.currentDialogue) {
+            this.showNextDialogue();
+        }
+    }
+
+    showNextDialogue() {
+        if (this.dialogueQueue.length > 0) {
+            this.currentDialogue = this.dialogueQueue.shift();
+            this.dialogueBox.innerHTML = `<strong>${this.currentDialogue.speaker}:</strong> ${this.currentDialogue.text}`;
+        } else {
+            this.currentDialogue = null;
+            this.dialogueBox.innerHTML = '';
+        }
+    }
+}
+
+const API_KEY = 'YOUR_OPENAI_API_KEY'; // Replace with your actual API key
+
+async function generateAIDialogue(context) {
+    try {
+        const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`
+            },
+            body: JSON.stringify({
+                prompt: `In a quirky world reminiscent of The Big Lebowski, ${context}\nNPC:`,
+                max_tokens: 50,
+                n: 1,
+                stop: null,
+                temperature: 0.7,
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].text.trim();
+    } catch (error) {
+        console.error("Error generating AI dialogue:", error);
+        return "Sorry, I'm having trouble thinking of what to say.";
+    }
+}
 
 class Game {
     constructor(canvasId) {
-        // ... (keep the existing constructor code)
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.canvas.width = 800;
+        this.canvas.height = 400;
         
+        this.player = new Player(0, 200);
+        this.npcs = [
+            new NPC(300, 200, 'The Dude'),
+            new NPC(600, 200, 'Walter'),
+            new NPC(900, 200, 'Donny')
+        ];
+        this.dialogueManager = new DialogueManager();
+
         this.background = new Image();
         this.background.src = 'background.png';
         
@@ -11,16 +123,34 @@ class Game {
         this.playerSprite.src = 'player_sprite.png';
         
         this.npcSprites = [];
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 3; i++) {
             let sprite = new Image();
             sprite.src = `npc_sprite_${i}.png`;
             this.npcSprites.push(sprite);
         }
         
-        this.rubberChicken = new Image();
-        this.rubberChicken.src = 'rubber_chicken.png';
-        
         this.questStage = 0;
+
+        this.loadWikipediaFaces();
+    }
+
+    async loadWikipediaFaces() {
+        for (let npc of this.npcs) {
+            try {
+                const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+                const data = await response.json();
+                if (data.thumbnail && data.thumbnail.source) {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.src = data.thumbnail.source;
+                    img.onload = () => {
+                        npc.faceImage = img;
+                    };
+                }
+            } catch (error) {
+                console.error('Error fetching Wikipedia image:', error);
+            }
+        }
     }
 
     drawBackground() {
@@ -31,15 +161,12 @@ class Game {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         this.drawBackground();
-        this.drawSprite(this.playerSprite, this.player.x, this.player.y);
+        this.player.move();
+        this.player.draw(this.ctx, this.playerSprite);
         
         this.npcs.forEach((npc, index) => {
-            this.drawSprite(this.npcSprites[index % this.npcSprites.length], npc.x, npc.y);
+            npc.draw(this.ctx, this.npcSprites[index % this.npcSprites.length]);
         });
-    }
-
-    drawSprite(sprite, x, y) {
-        this.ctx.drawImage(sprite, 0, 0, 30, 50, x, y, 30, 50);
     }
 
     async handleInteraction(x, y) {
@@ -49,14 +176,12 @@ class Game {
         );
 
         if (clickedNPC) {
+            clickedNPC.frame = 1; // Switch to talking frame
             const context = `The player is looking for a stolen rubber chicken. They are talking to ${clickedNPC.name}. Quest stage: ${this.questStage}`;
             const aiDialogue = await generateAIDialogue(context);
             this.dialogueManager.addDialogue(clickedNPC.name, aiDialogue);
             this.questStage++;
-        } else {
-            // Move player
-            this.player.x = x - this.player.width / 2;
-            this.player.y = y - this.player.height / 2;
+            setTimeout(() => { clickedNPC.frame = 0; }, 1000); // Switch back to standing frame after 1 second
         }
     }
 
@@ -81,8 +206,6 @@ class Game {
         });
     }
 }
-
-// ... (keep the DialogueManager and generateAIDialogue function from before)
 
 // Initialize the game when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
