@@ -17,15 +17,16 @@ class Character {
 }
 
 class Player extends Character {
-    constructor(x, y) {
+    constructor(x, y, canvasWidth) {
         super(x, y, 60, 100, 'Player');
         this.speed = 2;
+        this.canvasWidth = canvasWidth;
     }
 
     move() {
         this.x += this.speed;
         this.frame = (this.frame + 1) % 2;
-        if (this.x > game.canvas.width) {
+        if (this.x > this.canvasWidth) {
             this.x = -this.width;
         }
     }
@@ -96,12 +97,13 @@ async function generateAIDialogue(context) {
 
 class Game {
     constructor(canvasId) {
+        console.log('Game constructor called');
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.canvas.width = 800;
         this.canvas.height = 400;
         
-        this.player = new Player(0, 250);
+        this.player = new Player(0, 250, this.canvas.width);
         this.npcs = [
             new NPC(300, 250, 'The Dude'),
             new NPC(600, 250, 'Walter'),
@@ -179,6 +181,7 @@ class Game {
     }
 
     start() {
+        console.log('Game started');
         const gameLoop = () => {
             this.update();
             requestAnimationFrame(gameLoop);
@@ -202,6 +205,7 @@ class Game {
 
 // Initialize the game when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM content loaded');
     const game = new Game('gameCanvas');
     game.start();
 });
