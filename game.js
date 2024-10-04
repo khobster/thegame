@@ -70,7 +70,7 @@ class DialogueManager {
     }
 }
 
-const API_KEY = 'YOUR_OPENAI_API_KEY'; // Replace with your actual API key
+const API_KEY = 'sk-proj-k9fKY7kHSV3l1SAqSzEYT3BlbkFJe2OBbZwnlKWdYKu9qIey'; // Replace with your actual API key
 
 async function generateAIDialogue(context) {
     try {
