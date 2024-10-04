@@ -70,22 +70,15 @@ class DialogueManager {
     }
 }
 
-const API_KEY = 'sk-proj-k9fKY7kHSV3l1SAqSzEYT3BlbkFJe2OBbZwnlKWdYKu9qIey'; // Replace with your actual API key
-
 async function generateAIDialogue(context) {
     try {
-        const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
+        const response = await fetch('https://us-central1-your-firebase-project.cloudfunctions.net/generateDialogue', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
             },
             body: JSON.stringify({
                 prompt: `In a quirky world reminiscent of The Big Lebowski, ${context}\nNPC:`,
-                max_tokens: 50,
-                n: 1,
-                stop: null,
-                temperature: 0.7,
             })
         });
 
@@ -94,7 +87,7 @@ async function generateAIDialogue(context) {
         }
 
         const data = await response.json();
-        return data.choices[0].text.trim();
+        return data.text.trim();
     } catch (error) {
         console.error("Error generating AI dialogue:", error);
         return "Sorry, I'm having trouble thinking of what to say.";
@@ -108,7 +101,7 @@ class Game {
         this.canvas.width = 800;
         this.canvas.height = 400;
         
-        this.player = new Player(0, 250);  // Adjusted y-position
+        this.player = new Player(0, 250);
         this.npcs = [
             new NPC(300, 250, 'The Dude'),
             new NPC(600, 250, 'Walter'),
