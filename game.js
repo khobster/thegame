@@ -39,12 +39,14 @@ class NPC extends Character {
     constructor(x, y, name) {
         super(x, y, 60, 100, name);
         this.faceImage = null;
+        this.correctAnswer = null;  // Wikipedia entry title to guess
     }
 
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
         if (this.faceImage) {
-            ctx.drawImage(this.faceImage, this.x, this.y - 60, 60, 60);
+            // Enlarged Wikipedia image
+            ctx.drawImage(this.faceImage, this.x - 30, this.y - 100, 120, 120);
         }
     }
 }
@@ -105,49 +107,66 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
         this.canvas.width = 800;
         this.canvas.height = 400;
-        
-        this.player = new Player(0, 250, this.canvas.width);
-        this.npcs = [
-            new NPC(300, 250, 'The Dude'),
-            new NPC(600, 250, 'Walter'),
-            new NPC(900, 250, 'Donny')
-        ];
-        this.dialogueManager = new DialogueManager();
 
+        this.player = new Player(0, 250, this.canvas.width);
+        this.currentNPC = null;  // Only one NPC at a time
+        this.dialogueManager = new DialogueManager();
+        this.questStage = 0;
+        this.guessCount = 0;  // Track the number of guesses
+        this.maxGuesses = 7;  // Max guesses per NPC
+        this.lettersCollected = [];  // Letters rewarded upon correct guess
+        this.finalPuzzleWord = 'PUZZLE';  // For demonstration purposes
         this.background = new Image();
         this.background.src = 'background.png';
-        
+
         this.playerSprite = new Image();
         this.playerSprite.src = 'player_sprite.png';
-        
-        this.npcSprites = [];
-        for (let i = 0; i < 3; i++) {
-            let sprite = new Image();
-            sprite.src = `npc_sprite_${i}.png`;
-            this.npcSprites.push(sprite);
-        }
-        
-        this.questStage = 0;
 
-        this.loadWikipediaFaces();
+        this.npcSprite = new Image();
+        this.npcSprite.src = 'npc_sprite_0.png';  // Load a single NPC sprite
+
+        this.loadNewNPC();
+
+        // Create scrambled letter input for solving the puzzle
+        this.puzzleInput = document.createElement('input');
+        this.puzzleInput.type = 'text';
+        this.puzzleInput.placeholder = 'Guess the final puzzle word!';
+        this.puzzleInput.style.position = 'absolute';
+        this.puzzleInput.style.bottom = '10px';
+        this.puzzleInput.style.left = '50%';
+        this.puzzleInput.style.transform = 'translateX(-50%)';
+        document.body.appendChild(this.puzzleInput);
+
+        // Button for submitting the final guess
+        this.submitButton = document.createElement('button');
+        this.submitButton.textContent = 'Submit Guess';
+        this.submitButton.style.position = 'absolute';
+        this.submitButton.style.bottom = '10px';
+        this.submitButton.style.left = 'calc(50% + 150px)';
+        this.submitButton.addEventListener('click', () => {
+            this.handleFinalPuzzleGuess(this.puzzleInput.value);
+        });
+        document.body.appendChild(this.submitButton);
     }
 
-    async loadWikipediaFaces() {
-        for (let npc of this.npcs) {
-            try {
-                const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-                const data = await response.json();
-                if (data.thumbnail && data.thumbnail.source) {
-                    const img = new Image();
-                    img.crossOrigin = "Anonymous";
-                    img.src = data.thumbnail.source;
-                    img.onload = () => {
-                        npc.faceImage = img;
-                    };
-                }
-            } catch (error) {
-                console.error('Error fetching Wikipedia image:', error);
+    async loadNewNPC() {
+        // Load one NPC for the current level
+        this.currentNPC = new NPC(300, 250, `NPC Level ${this.questStage + 1}`);
+
+        try {
+            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+            const data = await response.json();
+            if (data.thumbnail && data.thumbnail.source) {
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.src = data.thumbnail.source;
+                img.onload = () => {
+                    this.currentNPC.faceImage = img;
+                    this.currentNPC.correctAnswer = data.title.toLowerCase();  // Set the correct answer to the Wikipedia entry title
+                };
             }
+        } catch (error) {
+            console.error('Error fetching Wikipedia image:', error);
         }
     }
 
@@ -157,36 +176,134 @@ class Game {
 
     update() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
+
         this.drawBackground();
         this.player.move();
         this.player.draw(this.ctx, this.playerSprite);
-        
-        this.npcs.forEach((npc, index) => {
-            npc.draw(this.ctx, this.npcSprites[index % this.npcSprites.length]);
-        });
+
+        if (this.currentNPC) {
+            this.currentNPC.draw(this.ctx, this.npcSprite);
+        }
+
+        // Display the scrambled letters the player has collected
+        this.displayScrambledLetters();
+    }
+
+    displayScrambledLetters() {
+        const scrambled = this.lettersCollected.sort(() => Math.random() - 0.5).join('');
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillText(`Letters collected (scrambled): ${scrambled}`, 10, 30);
     }
 
     async handleInteraction(x, y) {
-        const clickedNPC = this.npcs.find(npc => 
-            x >= npc.x && x <= npc.x + npc.width &&
-            y >= npc.y && y <= npc.y + npc.height
-        );
+        if (this.currentNPC &&
+            x >= this.currentNPC.x && x <= this.currentNPC.x + this.currentNPC.width &&
+            y >= this.currentNPC.y && y <= this.currentNPC.y + this.currentNPC.height) {
 
-        if (clickedNPC) {
             this.player.isMoving = false;
-            clickedNPC.frame = 1; // Switch to talking frame
-            const context = `The player is looking for a stolen rubber chicken. They are talking to ${clickedNPC.name}. Quest stage: ${this.questStage}`;
+            this.currentNPC.frame = 1; // Switch to talking frame
+            const context = `The player is talking to ${this.currentNPC.name}. Quest stage: ${this.questStage}`;
+            
             try {
                 const aiDialogue = await generateAIDialogue(context);
-                this.dialogueManager.addDialogue(clickedNPC.name, aiDialogue);
+                this.dialogueManager.addDialogue(this.currentNPC.name, aiDialogue);
             } catch (error) {
                 console.error("Failed to generate dialogue:", error);
-                this.dialogueManager.addDialogue(clickedNPC.name, "Sorry, I'm having trouble thinking of what to say.");
+                this.dialogueManager.addDialogue(this.currentNPC.name, "Sorry, I'm having trouble thinking of what to say.");
             }
+
             this.questStage++;
-            setTimeout(() => { clickedNPC.frame = 0; }, 1000); // Switch back to standing frame after 1 second
+            this.guessCount = 0;  // Reset guess count for the new NPC
+            setTimeout(() => { this.currentNPC.frame = 0; }, 1000); // Switch back to standing frame after 1 second
         }
+    }
+
+    handleGuess(userGuess) {
+        this.guessCount++;
+        const similarity = this.calculateStringSimilarity(userGuess, this.currentNPC.correctAnswer);
+
+        if (this.guessCount > this.maxGuesses) {
+            alert("You've run out of guesses!");
+            this.startNextLevel();
+        } else if (userGuess.toLowerCase() === this.currentNPC.correctAnswer) {
+            alert("Correct! You guessed the Wikipedia entry.");
+
+            // Reward player with a random letter
+            const randomLetter = this.getRandomLetter();
+            this.lettersCollected.push(randomLetter);
+            alert(`You earned the letter: ${randomLetter}`);
+            
+            this.startNextLevel();
+        } else {
+            const hint = this.getHintBasedOnGuess(similarity);
+            alert(`Incorrect guess. Hint: ${hint}`);
+        }
+    }
+
+    getHintBasedOnGuess(similarity) {
+        if (similarity > 0.7) {
+            return "You're really close!";
+        } else if (similarity > 0.4) {
+            return "You're getting warmer.";
+        } else {
+            return "Think in a different direction!";
+        }
+    }
+
+    calculateStringSimilarity(a, b) {
+        let longer = a;
+        let shorter = b;
+        if (a.length < b.length) {
+            longer = b;
+            shorter = a;
+        }
+        const longerLength = longer.length;
+        if (longerLength === 0) {
+            return 1.0;
+        }
+        return (longerLength - this.editDistance(longer, shorter)) / parseFloat(longerLength);
+    }
+
+    editDistance(a, b) {
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+
+    handleFinalPuzzleGuess(puzzleGuess) {
+        const assembledWord = this.lettersCollected.join('');
+        if (puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
+            alert("Congratulations! You solved the puzzle.");
+        } else {
+            alert("That's not correct. Keep collecting letters!");
+        }
+    }
+
+    getRandomLetter() {
+        // Get a random letter from the final puzzle word for demo purposes
+        const availableLetters = this.finalPuzzleWord.split("").filter(letter => !this.lettersCollected.includes(letter));
+        return availableLetters[Math.floor(Math.random() * availableLetters.length)];
+    }
+
+    async startNextLevel() {
+        this.questStage++;
+        await this.loadNewNPC();  // Load new NPC
+        this.guessCount = 0;  // Reset guess counter for the new NPC
     }
 
     start() {
@@ -209,6 +326,10 @@ class Game {
                 this.dialogueManager.showNextDialogue();
             } else if (event.code === 'ArrowRight') {
                 this.player.isMoving = true;
+            } else if (event.code === 'Enter') {
+                // Temporary guessing mechanism for testing:
+                const userGuess = prompt("Enter your guess for the Wikipedia entry:");
+                this.handleGuess(userGuess);
             }
         });
 
