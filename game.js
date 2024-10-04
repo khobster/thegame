@@ -72,7 +72,7 @@ class DialogueManager {
 
 async function generateAIDialogue(context) {
     try {
-        const response = await fetch('https://us-central1-your-firebase-project.cloudfunctions.net/generateDialogue', {
+        const response = await fetch('https://us-central1-thegame-91290.cloudfunctions.net/generateDialogue', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
