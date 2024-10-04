@@ -21,13 +21,16 @@ class Player extends Character {
         super(x, y, 60, 100, 'Player');
         this.speed = 2;
         this.canvasWidth = canvasWidth;
+        this.isMoving = false;
     }
 
     move() {
-        this.x += this.speed;
-        this.frame = (this.frame + 1) % 2;
-        if (this.x > this.canvasWidth) {
-            this.x = -this.width;
+        if (this.isMoving) {
+            this.x += this.speed;
+            this.frame = (this.frame + 1) % 2;
+            if (this.x > this.canvasWidth) {
+                this.x = -this.width;
+            }
         }
     }
 }
@@ -171,10 +174,16 @@ class Game {
         );
 
         if (clickedNPC) {
+            this.player.isMoving = false;
             clickedNPC.frame = 1; // Switch to talking frame
             const context = `The player is looking for a stolen rubber chicken. They are talking to ${clickedNPC.name}. Quest stage: ${this.questStage}`;
-            const aiDialogue = await generateAIDialogue(context);
-            this.dialogueManager.addDialogue(clickedNPC.name, aiDialogue);
+            try {
+                const aiDialogue = await generateAIDialogue(context);
+                this.dialogueManager.addDialogue(clickedNPC.name, aiDialogue);
+            } catch (error) {
+                console.error("Failed to generate dialogue:", error);
+                this.dialogueManager.addDialogue(clickedNPC.name, "Sorry, I'm having trouble thinking of what to say.");
+            }
             this.questStage++;
             setTimeout(() => { clickedNPC.frame = 0; }, 1000); // Switch back to standing frame after 1 second
         }
@@ -198,6 +207,14 @@ class Game {
         document.addEventListener('keydown', (event) => {
             if (event.code === 'Space') {
                 this.dialogueManager.showNextDialogue();
+            } else if (event.code === 'ArrowRight') {
+                this.player.isMoving = true;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'ArrowRight') {
+                this.player.isMoving = false;
             }
         });
     }
