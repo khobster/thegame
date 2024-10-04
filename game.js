@@ -11,14 +11,14 @@ class Character {
     draw(ctx, sprite) {
         ctx.drawImage(sprite, this.frame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
         ctx.fillStyle = 'black';
-        ctx.font = '12px Arial';
-        ctx.fillText(this.name, this.x, this.y - 5);
+        ctx.font = '16px Arial';
+        ctx.fillText(this.name, this.x, this.y - 10);
     }
 }
 
 class Player extends Character {
     constructor(x, y) {
-        super(x, y, 30, 50, 'Player');
+        super(x, y, 60, 100, 'Player');
         this.speed = 2;
     }
 
@@ -33,14 +33,14 @@ class Player extends Character {
 
 class NPC extends Character {
     constructor(x, y, name) {
-        super(x, y, 30, 50, name);
+        super(x, y, 60, 100, name);
         this.faceImage = null;
     }
 
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
         if (this.faceImage) {
-            ctx.drawImage(this.faceImage, this.x, this.y - 30, 30, 30);
+            ctx.drawImage(this.faceImage, this.x, this.y - 60, 60, 60);
         }
     }
 }
@@ -108,11 +108,11 @@ class Game {
         this.canvas.width = 800;
         this.canvas.height = 400;
         
-        this.player = new Player(0, 200);
+        this.player = new Player(0, 250);  // Adjusted y-position
         this.npcs = [
-            new NPC(300, 200, 'The Dude'),
-            new NPC(600, 200, 'Walter'),
-            new NPC(900, 200, 'Donny')
+            new NPC(300, 250, 'The Dude'),
+            new NPC(600, 250, 'Walter'),
+            new NPC(900, 250, 'Donny')
         ];
         this.dialogueManager = new DialogueManager();
 
