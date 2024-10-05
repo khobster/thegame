@@ -45,9 +45,22 @@ class NPC extends Character {
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
         if (this.faceImage) {
-            // Enlarged Wikipedia image
-            ctx.drawImage(this.faceImage, this.x - 30, this.y - 100, 120, 120);
+            // Draw the thought bubble first
+            this.drawThoughtBubble(ctx);
+            // Draw the Wikipedia image inside the thought bubble (bigger and clearer)
+            ctx.drawImage(this.faceImage, this.x - 30, this.y - 160, 150, 150);
         }
+    }
+
+    // Method to draw a simple thought bubble above NPC's head
+    drawThoughtBubble(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x + 30, this.y - 140, 80, 0, Math.PI * 2, true); // Draw the bubble circle
+        ctx.moveTo(this.x + 15, this.y - 60);
+        ctx.lineTo(this.x + 5, this.y - 40);  // Small bubble trail
+        ctx.lineTo(this.x + 15, this.y - 20);
+        ctx.stroke();
+        ctx.closePath();
     }
 }
 
