@@ -18,19 +18,18 @@ class Character {
 class Player extends Character {
     constructor(x, y, canvasWidth) {
         super(x, y, 60, 100, 'Player');
-        this.speed = 2;
+        this.speed = 5;
         this.canvasWidth = canvasWidth;
-        this.isMoving = false;
+        this.direction = 0; // 0: not moving, -1: left, 1: right
     }
 
     move() {
-        if (this.isMoving) {
-            this.x += this.speed;
+        this.x += this.speed * this.direction;
+        if (this.direction !== 0) {
             this.frame = (this.frame + 1) % 2;
-            if (this.x > this.canvasWidth) {
-                this.x = -this.width;
-            }
         }
+        if (this.x < 0) this.x = 0;
+        if (this.x > this.canvasWidth - this.width) this.x = this.canvasWidth - this.width;
     }
 }
 
@@ -51,18 +50,18 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = 300;  // Increased size
-        const bubbleHeight = 300; // Increased size
-        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
-        const bubbleY = this.y - bubbleHeight - 20;
+        const bubbleWidth = ctx.canvas.width * 0.8;
+        const bubbleHeight = bubbleWidth * (this.thoughtBubble.height / this.thoughtBubble.width);
+        const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
+        const bubbleY = ctx.canvas.height * 0.1;
 
         // Draw thought bubble
         ctx.drawImage(this.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
         // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const imgWidth = bubbleWidth * 0.8;
-            const imgHeight = bubbleHeight * 0.8;
+            const imgWidth = bubbleWidth * 0.7;
+            const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
             const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
             const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
 
@@ -75,8 +74,8 @@ class Game {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.canvas.width = 800;
-        this.canvas.height = 400;
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
 
         this.background = new Image();
         this.background.src = 'background.png';
@@ -92,38 +91,94 @@ class Game {
         this.questStage = 0;
         this.finalPuzzleWord = null;
         this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.player = new Player(0, 250, this.canvas.width);
+        this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.currentNPC = null;
 
         this.playerNearNPC = false;
         this.remainingGuesses = 7;
 
-        this.hintArea = document.getElementById('hintArea');
         this.guessInput = document.getElementById('guessInput');
         this.guessButton = document.getElementById('guessButton');
         this.lettersCollectedDisplay = document.getElementById('lettersCollected');
         this.solveButton = document.getElementById('solveButton');
+        this.hintArea = document.getElementById('hintArea');
 
-        this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
+        this.hideGameElements();
 
-        this.solveButton.addEventListener('click', () => {
-            const puzzleGuess = prompt("Enter your guess for the final word:");
-            this.handleFinalPuzzleGuess(puzzleGuess);
-        });
+        this.addEventListeners();
+    }
 
+    resizeCanvas() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        if (this.player) {
+            this.player.y = this.canvas.height - 150;
+        }
+        if (this.currentNPC) {
+            this.currentNPC.y = this.canvas.height - 150;
+        }
+        this.draw();
+    }
+
+    addEventListeners() {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
+        this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
+        this.solveButton.addEventListener('click', () => this.showFinalPuzzleModal());
+    }
 
-        this.addTouchControls();
+    handleKeyDown(e) {
+        if (e.key === 'ArrowLeft') this.player.direction = -1;
+        if (e.key === 'ArrowRight') this.player.direction = 1;
+    }
+
+    handleKeyUp(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
+    }
+
+    handleTouchStart(e) {
+        this.touchStartX = e.touches[0].clientX;
+    }
+
+    handleTouchMove(e) {
+        const touchEndX = e.touches[0].clientX;
+        const diff = touchEndX - this.touchStartX;
+        this.player.direction = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
+        this.touchStartX = touchEndX;
+    }
+
+    handleTouchEnd() {
+        this.player.direction = 0;
+    }
+
+    hideGameElements() {
+        this.guessInput.style.display = 'none';
+        this.guessButton.style.display = 'none';
+        this.solveButton.style.display = 'none';
+        this.lettersCollectedDisplay.style.display = 'none';
+        this.hintArea.style.display = 'none';
+    }
+
+    showGameElements() {
+        this.guessInput.style.display = 'block';
+        this.guessButton.style.display = 'block';
+        this.solveButton.style.display = 'block';
+        this.lettersCollectedDisplay.style.display = 'block';
+        this.hintArea.style.display = 'block';
     }
 
     showTitleScreen() {
+        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Spy Street', this.canvas.width / 2, this.canvas.height / 2 - 20);
 
         const startButton = document.createElement('button');
         startButton.textContent = 'START GAME';
@@ -140,22 +195,31 @@ class Game {
     }
 
     showInstructionScreen() {
+        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Use arrow keys or swipe to walk.', 50, 150);
-        this.ctx.fillText('Approach the spy to interact.', 50, 180);
-        this.ctx.fillText("Guess what he's thinking.", 50, 210);
-        this.ctx.fillText('Each correct guess gives you a letter for the final word puzzle.', 50, 240);
+        this.ctx.textAlign = 'center';
+        
+        const instructions = [
+            "Use arrow keys or swipe to walk.",
+            "Approach the spy to interact.",
+            "Guess what he's thinking.",
+            "Each correct guess gives you",
+            "a letter for the final word puzzle."
+        ];
+        
+        instructions.forEach((line, index) => {
+            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
+        });
 
         const continueButton = document.createElement('button');
         continueButton.textContent = 'CONTINUE';
         continueButton.style.position = 'absolute';
         continueButton.style.left = '50%';
-        continueButton.style.top = '70%';
+        continueButton.style.bottom = '20%';
         continueButton.style.transform = 'translateX(-50%)';
         document.body.appendChild(continueButton);
 
@@ -192,19 +256,27 @@ class Game {
         this.ctx.drawImage(this.background, 0, 0, this.canvas.width, this.canvas.height);
     }
 
-    update() {
+    draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawBackground();
-
-        if (this.player) {
-            this.player.move();
-            this.player.draw(this.ctx, this.playerSprite);
-        }
-
         if (this.currentNPC) {
             this.currentNPC.draw(this.ctx, this.npcSprite);
         }
+        if (this.player) {
+            this.player.draw(this.ctx, this.playerSprite);
+        }
+    }
 
+    update() {
+        if (this.player) {
+            this.player.move();
+        }
+        this.checkPlayerNearNPC();
+        this.draw();
+        requestAnimationFrame(() => this.update());
+    }
+
+    checkPlayerNearNPC() {
         if (this.player && this.currentNPC) {
             if (Math.abs(this.player.x - this.currentNPC.x) < 50) {
                 this.playerNearNPC = true;
@@ -214,9 +286,6 @@ class Game {
                 this.hideGuessingUI();
             }
         }
-
-        this.displayCollectedLetters();
-        this.displayRemainingGuesses();
     }
 
     showGuessingUI() {
@@ -229,14 +298,6 @@ class Game {
         this.guessInput.style.display = 'none';
         this.guessButton.style.display = 'none';
         this.hintArea.style.display = 'none';
-    }
-
-    displayCollectedLetters() {
-        this.lettersCollectedDisplay.textContent = `Letters: ${this.scrambledLetters}`;
-    }
-
-    displayRemainingGuesses() {
-        this.hintArea.textContent = `Remaining guesses: ${this.remainingGuesses}`;
     }
 
     async handleGuess(userGuess) {
@@ -362,7 +423,7 @@ class Game {
     }
 
     gameOver() {
-        this.hideGuessingUI();
+        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -401,6 +462,7 @@ class Game {
         this.scrambledLetters = [...this.lettersCollected]
             .sort(() => Math.random() - 0.5)
             .join('');
+        this.lettersCollectedDisplay.textContent = `Letters: ${this.scrambledLetters}`;
     }
 
     async getRandomWord() {
@@ -428,7 +490,14 @@ class Game {
         return array;
     }
 
-    async handleFinalPuzzleGuess(puzzleGuess) {
+    showFinalPuzzleModal() {
+        const puzzleGuess = prompt("Enter your guess for the final word:");
+        if (puzzleGuess) {
+            this.handleFinalPuzzleGuess(puzzleGuess);
+        }
+    }
+
+    handleFinalPuzzleGuess(puzzleGuess) {
         if (this.finalPuzzleWord && puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
             this.showWinScreen();
         } else {
@@ -437,7 +506,7 @@ class Game {
     }
 
     showWinScreen() {
-        this.hideGuessingUI();
+        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -472,6 +541,7 @@ class Game {
     }
 
     startGame() {
+        this.showGameElements();
         this.canvas.style.display = 'block';
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
@@ -480,44 +550,7 @@ class Game {
         this.finalPuzzleWord = null;
         this.getRandomWord().then(word => this.finalPuzzleWord = word);
         this.loadNewNPC();
-        this.start();
-    }
-
-    start() {
-        const gameLoop = () => {
-            this.update();
-            requestAnimationFrame(gameLoop);
-        };
-        gameLoop();
-    }
-
-    handleKeyDown(e) {
-        if (e.key === 'ArrowLeft') this.player.direction = -1;
-        if (e.key === 'ArrowRight') this.player.direction = 1;
-    }
-
-    handleKeyUp(e) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
-    }
-
-    addTouchControls() {
-        let touchStartX = 0;
-        this.canvas.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        });
-        this.canvas.addEventListener('touchmove', (e) => {
-            const touchEndX = e.touches[0].clientX;
-            const diff = touchEndX - touchStartX;
-            if (diff > 0) {
-                this.player.direction = 1;
-            } else if (diff < 0) {
-                this.player.direction = -1;
-            }
-            touchStartX = touchEndX;
-        });
-        this.canvas.addEventListener('touchend', () => {
-            this.player.direction = 0;
-        });
+        this.update();
     }
 }
 
