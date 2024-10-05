@@ -49,8 +49,8 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = this.bubbleSize * 1.5;
-        const bubbleHeight = this.bubbleSize * 1.2;
+        const bubbleWidth = this.bubbleSize * 2;
+        const bubbleHeight = this.bubbleSize * 1.5;
         const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
         const bubbleY = this.y - bubbleHeight - 20;
 
@@ -59,22 +59,24 @@ class NPC extends Character {
         ctx.beginPath();
         ctx.ellipse(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight / 2, bubbleWidth / 2, bubbleHeight / 2, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
 
         // Connecting bubbles
         [20, 15, 10].forEach((size, index) => {
             ctx.beginPath();
             ctx.arc(this.x + this.width / 2, this.y - size - index * 15, size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.stroke();
         });
 
         // Draw image inside bubble
         if (this.faceImage) {
             const aspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleWidth * 0.9;
+            let imgWidth = bubbleWidth * 0.8;
             let imgHeight = imgWidth / aspectRatio;
 
-            if (imgHeight > bubbleHeight * 0.9) {
-                imgHeight = bubbleHeight * 0.9;
+            if (imgHeight > bubbleHeight * 0.8) {
+                imgHeight = bubbleHeight * 0.8;
                 imgWidth = imgHeight * aspectRatio;
             }
 
@@ -119,7 +121,34 @@ class Game {
         this.solveButton = document.getElementById('solveButton');
 
         this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
-        this.solveButton.addEventListener('click', () => this.handleFinalPuzzleGuess(prompt("Enter your guess for the final word:")));
+
+        this.modalOverlay = document.createElement('div');
+        this.modalOverlay.id = 'modalOverlay';
+        this.modalOverlay.style.display = 'none';
+        document.body.appendChild(this.modalOverlay);
+
+        this.modal = document.createElement('div');
+        this.modal.id = 'modal';
+        this.modalOverlay.appendChild(this.modal);
+
+        this.modalInput = document.createElement('input');
+        this.modalInput.type = 'text';
+        this.modal.appendChild(this.modalInput);
+
+        this.modalSubmit = document.createElement('button');
+        this.modalSubmit.textContent = 'Submit';
+        this.modal.appendChild(this.modalSubmit);
+
+        this.modalSubmit.addEventListener('click', () => {
+            this.handleFinalPuzzleGuess(this.modalInput.value);
+            this.modalOverlay.style.display = 'none';
+        });
+
+        this.solveButton.addEventListener('click', () => {
+            this.modalOverlay.style.display = 'flex';
+            this.modalInput.value = '';
+            this.modalInput.focus();
+        });
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
@@ -147,9 +176,9 @@ class Game {
             const touchEndX = e.touches[0].clientX;
             const diff = touchEndX - touchStartX;
             if (diff > 0) {
-                this.player.direction = 1;
+                this.player.direction = 0.5; // Reduced speed
             } else if (diff < 0) {
-                this.player.direction = -1;
+                this.player.direction = -0.5; // Reduced speed
             }
             touchStartX = touchEndX;
         });
@@ -236,7 +265,7 @@ class Game {
             console.log(`Loaded NPC image for ${this.currentNPC.name}. Answer: ${this.currentNPC.correctAnswer}`);
         } catch (error) {
             console.error('Error fetching Wikipedia image:', error);
-        }
+            }
     }
 
     drawBackground() {
@@ -271,10 +300,13 @@ class Game {
 
     showGuessingUI() {
         document.getElementById('inputArea').style.display = 'flex';
+        document.getElementById('solveButton').style.display = 'block';
+        document.getElementById('lettersCollected').style.display = 'block';
     }
 
     hideGuessingUI() {
         document.getElementById('inputArea').style.display = 'none';
+        document.getElementById('solveButton').style.display = 'none';
         this.hintArea.textContent = '';
     }
 
@@ -353,7 +385,7 @@ class Game {
     }
 
     async handleFinalPuzzleGuess(puzzleGuess) {
-        if (puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
+        if (this.finalPuzzleWord && puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
             this.hintArea.textContent = "Congratulations! You solved the final puzzle!";
         } else {
             this.hintArea.textContent = "Incorrect puzzle guess. Keep collecting letters!";
@@ -362,8 +394,9 @@ class Game {
 
     startGame() {
         this.canvas.style.display = 'block';
-        document.getElementById('inputArea').style.display = 'none'; // Hide initially
-        document.getElementById('solveButton').style.display = 'block';
+        document.getElementById('inputArea').style.display = 'none';
+        document.getElementById('solveButton').style.display = 'none';
+        document.getElementById('lettersCollected').style.display = 'none';
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
