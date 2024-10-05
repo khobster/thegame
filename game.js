@@ -4,19 +4,14 @@ class Character {
         this.y = y;
         this.width = width;
         this.height = height;
-        this.name = name;
+        this.name = name || "NPC"; // Default name if not provided
         this.frame = 0;
     }
 
     draw(ctx, sprite) {
         if (sprite) {
             ctx.drawImage(sprite, this.frame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
-        } else {
-            console.error(`Failed to load sprite for ${this.name}`);
         }
-        ctx.fillStyle = 'black';
-        ctx.font = '16px Arial';
-        ctx.fillText(this.name, this.x, this.y - 10);
     }
 }
 
@@ -50,15 +45,13 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            ctx.drawImage(this.faceImage, this.x - 35, this.y - 175, 120, 120);
-        } else {
-            console.error(`Failed to load face image for ${this.name}`);
+            ctx.drawImage(this.faceImage, this.x - 60, this.y - 200, 150, 150); // Adjusted position and size for bigger image
         }
     }
 
     drawThoughtBubble(ctx) {
         ctx.beginPath();
-        ctx.arc(this.x + 30, this.y - 140, 80, 0, Math.PI * 2, true);
+        ctx.arc(this.x + 30, this.y - 140, 90, 0, Math.PI * 2, true); // Increased bubble size
         ctx.moveTo(this.x + 15, this.y - 60);
         ctx.lineTo(this.x + 5, this.y - 40);
         ctx.lineTo(this.x + 15, this.y - 20);
@@ -78,34 +71,86 @@ class Game {
 
         this.background = new Image();
         this.background.src = 'background.png';
-        this.background.onload = () => {
-            console.log('Background image loaded.');
-        };
-        this.background.onerror = () => {
-            console.error('Failed to load background image.');
-        };
 
         this.playerSprite = new Image();
         this.playerSprite.src = 'player_sprite.png';
-        this.playerSprite.onload = () => {
-            console.log('Player sprite loaded.');
-        };
-        this.playerSprite.onerror = () => {
-            console.error('Failed to load player sprite.');
-        };
 
         this.npcSprite = new Image();
         this.npcSprite.src = 'npc_sprite_0.png';
-        this.npcSprite.onload = () => {
-            console.log('NPC sprite loaded.');
-        };
-        this.npcSprite.onerror = () => {
-            console.error('Failed to load NPC sprite.');
-        };
 
         this.lettersCollected = [];
+        this.questStage = 0;
         this.player = new Player(0, 250, this.canvas.width);
         this.currentNPC = null;
+
+        // Track if player is close enough to NPC to interact
+        this.playerNearNPC = false;
+    }
+
+    showTitleScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+
+        const startButton = document.createElement('button');
+        startButton.textContent = 'START GAME';
+        startButton.style.position = 'absolute';
+        startButton.style.left = '50%';
+        startButton.style.top = '60%';
+        startButton.style.transform = 'translateX(-50%)';
+        startButton.style.backgroundColor = 'red';
+        startButton.style.color = 'white';
+        startButton.style.fontSize = '20px';
+        startButton.style.border = 'none';
+        startButton.style.padding = '10px';
+        startButton.style.cursor = 'pointer';
+        startButton.style.animation = 'blink 1s infinite';
+        document.body.appendChild(startButton);
+
+        startButton.addEventListener('click', () => {
+            startButton.remove();
+            this.showInstructionScreen();
+        });
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes blink {
+                50% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    showInstructionScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
+        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking.', 50, 150);
+        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
+
+        const continueButton = document.createElement('button');
+        continueButton.textContent = 'CONTINUE';
+        continueButton.style.position = 'absolute';
+        continueButton.style.left = '50%';
+        continueButton.style.top = '60%';
+        continueButton.style.transform = 'translateX(-50%)';
+        continueButton.style.backgroundColor = 'blue';
+        continueButton.style.color = 'white';
+        continueButton.style.fontSize = '20px';
+        continueButton.style.border = 'none';
+        continueButton.style.padding = '10px';
+        document.body.appendChild(continueButton);
+
+        continueButton.addEventListener('click', () => {
+            continueButton.remove();
+            this.startGame();
+        });
     }
 
     async loadNewNPC() {
@@ -131,11 +176,7 @@ class Game {
     }
 
     drawBackground() {
-        if (this.background) {
-            this.ctx.drawImage(this.background, 0, 0, this.canvas.width, this.canvas.height);
-        } else {
-            console.error('Background is not loaded.');
-        }
+        this.ctx.drawImage(this.background, 0, 0, this.canvas.width, this.canvas.height);
     }
 
     update() {
@@ -145,12 +186,17 @@ class Game {
         if (this.player) {
             this.player.move();
             this.player.draw(this.ctx, this.playerSprite);
+
+            // Check if player is near the NPC
+            if (this.currentNPC && Math.abs(this.player.x - this.currentNPC.x) < 50) {
+                this.playerNearNPC = true;
+            } else {
+                this.playerNearNPC = false;
+            }
         }
 
         if (this.currentNPC) {
             this.currentNPC.draw(this.ctx, this.npcSprite);
-        } else {
-            console.error('No NPC is loaded.');
         }
 
         this.displayScrambledLetters();
@@ -165,32 +211,19 @@ class Game {
         }
     }
 
-    start() {
-        console.log('Game started.');
-        const gameLoop = () => {
-            this.update();
-            requestAnimationFrame(gameLoop);
-        };
-        this.loadNewNPC().then(() => gameLoop());
-
-        this.canvas.addEventListener('click', (event) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            this.handleInteraction(x, y);
-        });
-
-        document.addEventListener('keydown', (event) => {
-            if (event.code === 'Enter') {
-                const userGuess = prompt('Enter your guess for the Wikipedia entry:');
-                this.handleGuess(userGuess);
-            }
-        });
+    startGame() {
+        this.canvas.style.display = 'block';
+        this.player = new Player(0, 250, this.canvas.width);
+        this.questStage = 0;
+        this.lettersCollected = [];
+        this.loadNewNPC();
+        this.start();
     }
 
     async handleGuess(userGuess) {
         if (userGuess.toLowerCase() === this.currentNPC.correctAnswer) {
             alert('Correct! You guessed the Wikipedia entry.');
+            this.lettersCollected.push(this.getRandomLetter());
             this.startNextLevel();
         } else {
             alert('Incorrect guess.');
@@ -200,6 +233,41 @@ class Game {
     async startNextLevel() {
         this.questStage++;
         this.loadNewNPC();
+    }
+
+    getRandomLetter() {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+
+    start() {
+        const gameLoop = () => {
+            this.update();
+            requestAnimationFrame(gameLoop);
+        };
+        gameLoop();
+
+        this.canvas.addEventListener('click', (event) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            this.handleInteraction(x, y);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'ArrowRight') {
+                this.player.isMoving = true;
+            } else if (event.code === 'Enter' && this.playerNearNPC) {
+                const userGuess = prompt('Enter your guess for the Wikipedia entry:');
+                this.handleGuess(userGuess);
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'ArrowRight') {
+                this.player.isMoving = false;
+            }
+        });
     }
 
     handleInteraction(x, y) {
@@ -213,5 +281,5 @@ class Game {
 
 document.addEventListener('DOMContentLoaded', () => {
     const game = new Game('gameCanvas');
-    game.start();
+    game.showTitleScreen();
 });
