@@ -40,7 +40,6 @@ class NPC extends Character {
         this.correctAnswer = null;
         this.thoughtBubble = new Image();
         this.thoughtBubble.src = 'thoughtbubble.png';
-        this.bubbleSize = 300; // Increased bubble size
     }
 
     draw(ctx, sprite) {
@@ -53,23 +52,35 @@ class NPC extends Character {
     drawThoughtBubble(ctx) {
         const canvasWidth = ctx.canvas.width;
         const canvasHeight = ctx.canvas.height;
-        const bubbleWidth = Math.min(this.bubbleSize, canvasWidth * 0.8);
-        const bubbleHeight = bubbleWidth * (this.thoughtBubble.height / this.thoughtBubble.width);
+        
+        // Calculate sizes based on the Wikipedia image
+        const maxBubbleWidth = canvasWidth * 0.8;
+        const maxBubbleHeight = canvasHeight * 0.6;
+        const aspectRatio = this.thoughtBubble.width / this.thoughtBubble.height;
+        
+        let bubbleWidth = maxBubbleWidth;
+        let bubbleHeight = bubbleWidth / aspectRatio;
+        
+        if (bubbleHeight > maxBubbleHeight) {
+            bubbleHeight = maxBubbleHeight;
+            bubbleWidth = bubbleHeight * aspectRatio;
+        }
+        
         const bubbleX = (canvasWidth - bubbleWidth) / 2;
-        const bubbleY = canvasHeight / 2 - bubbleHeight / 2 - 50;
+        const bubbleY = canvasHeight * 0.1;
 
         // Draw thought bubble
         ctx.drawImage(this.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
-        // Draw image inside bubble
+        // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const aspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleWidth * 0.7;
-            let imgHeight = imgWidth / aspectRatio;
+            const imgAspectRatio = this.faceImage.width / this.faceImage.height;
+            let imgWidth = bubbleWidth * 0.8;
+            let imgHeight = imgWidth / imgAspectRatio;
 
-            if (imgHeight > bubbleHeight * 0.7) {
-                imgHeight = bubbleHeight * 0.7;
-                imgWidth = imgHeight * aspectRatio;
+            if (imgHeight > bubbleHeight * 0.8) {
+                imgHeight = bubbleHeight * 0.8;
+                imgWidth = imgHeight * imgAspectRatio;
             }
 
             const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
@@ -77,23 +88,6 @@ class NPC extends Character {
 
             ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
-
-        // Draw connecting bubbles
-        const bubbleCenterX = bubbleX + bubbleWidth / 2;
-        const bubbleCenterY = bubbleY + bubbleHeight;
-        const npcHeadX = this.x + this.width / 2;
-        const npcHeadY = this.y;
-
-        ctx.fillStyle = 'white';
-        ctx.strokeStyle = 'black';
-        [15, 10, 5].forEach((size, index) => {
-            const x = npcHeadX + (bubbleCenterX - npcHeadX) * (index + 1) / 4;
-            const y = npcHeadY + (bubbleCenterY - npcHeadY) * (index + 1) / 4;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        });
     }
 }
 
