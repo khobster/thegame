@@ -232,7 +232,7 @@ class Game {
     // Updated to call the Firebase backend for hint generation
     async generateHint(userGuess, correctAnswer) {
         try {
-            const response = await fetch('https://us-central1-your-project-id.cloudfunctions.net/generateHint', {
+            const response = await fetch('https://us-central1-thegame-91290.cloudfunctions.net/generateHint', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
