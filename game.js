@@ -119,7 +119,7 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('TOMATO MAN VS. SPY', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
         const startButton = document.createElement('button');
         startButton.textContent = 'START GAME';
@@ -157,7 +157,7 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Walk up to the spy and try and guess what he's thinking.', 50, 150);
+        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking.', 50, 150);
         this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
 
         const continueButton = document.createElement('button');
