@@ -246,13 +246,13 @@ class Game {
 
     startGame() {
         this.canvas.style.display = 'block';
-        this.player = new Player(0, 250, this.canvas.width);
+        this.player = new Player(0, 250, this.canvas.width); // Player is initialized here
         this.currentNPC = null;
         this.questStage = 0;
         this.guessCount = 0;
         this.lettersCollected = [];
         this.loadNewNPC();
-        this.start();
+        this.start(); // Start the game loop only after initialization
     }
 
     async loadNewNPC() {
@@ -288,8 +288,10 @@ class Game {
         // Draw the background first, if it's loaded
         this.drawBackground();
         
-        this.player.move();
-        this.player.draw(this.ctx, this.playerSprite);
+        if (this.player) {  // Check if player is defined
+            this.player.move();
+            this.player.draw(this.ctx, this.playerSprite);
+        }
 
         if (this.currentNPC) {
             this.currentNPC.draw(this.ctx, this.npcSprite);
