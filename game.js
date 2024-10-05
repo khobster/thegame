@@ -4,7 +4,7 @@ class Character {
         this.y = y;
         this.width = width;
         this.height = height;
-        this.name = name || "NPC"; // Default name if not provided
+        this.name = name || "NPC";
         this.frame = 0;
     }
 
@@ -45,16 +45,16 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            ctx.drawImage(this.faceImage, this.x - 60, this.y - 200, 150, 150); // Adjusted position and size for bigger image
+            ctx.drawImage(this.faceImage, this.x + 80, this.y - 150, 160, 160); // Position to the right, larger image
         }
     }
 
     drawThoughtBubble(ctx) {
         ctx.beginPath();
-        ctx.arc(this.x + 30, this.y - 140, 90, 0, Math.PI * 2, true); // Increased bubble size
-        ctx.moveTo(this.x + 15, this.y - 60);
-        ctx.lineTo(this.x + 5, this.y - 40);
-        ctx.lineTo(this.x + 15, this.y - 20);
+        ctx.arc(this.x + 140, this.y - 60, 90, 0, Math.PI * 2, true); // Bigger, positioned to the right
+        ctx.moveTo(this.x + 60, this.y - 30);
+        ctx.lineTo(this.x + 50, this.y - 10);
+        ctx.lineTo(this.x + 60, this.y + 10);
         ctx.fillStyle = 'white';
         ctx.fill();
         ctx.stroke();
@@ -83,74 +83,7 @@ class Game {
         this.player = new Player(0, 250, this.canvas.width);
         this.currentNPC = null;
 
-        // Track if player is close enough to NPC to interact
         this.playerNearNPC = false;
-    }
-
-    showTitleScreen() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
-
-        const startButton = document.createElement('button');
-        startButton.textContent = 'START GAME';
-        startButton.style.position = 'absolute';
-        startButton.style.left = '50%';
-        startButton.style.top = '60%';
-        startButton.style.transform = 'translateX(-50%)';
-        startButton.style.backgroundColor = 'red';
-        startButton.style.color = 'white';
-        startButton.style.fontSize = '20px';
-        startButton.style.border = 'none';
-        startButton.style.padding = '10px';
-        startButton.style.cursor = 'pointer';
-        startButton.style.animation = 'blink 1s infinite';
-        document.body.appendChild(startButton);
-
-        startButton.addEventListener('click', () => {
-            startButton.remove();
-            this.showInstructionScreen();
-        });
-
-        const style = document.createElement('style');
-        style.innerHTML = `
-            @keyframes blink {
-                50% { opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    showInstructionScreen() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '20px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking.', 50, 150);
-        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
-
-        const continueButton = document.createElement('button');
-        continueButton.textContent = 'CONTINUE';
-        continueButton.style.position = 'absolute';
-        continueButton.style.left = '50%';
-        continueButton.style.top = '60%';
-        continueButton.style.transform = 'translateX(-50%)';
-        continueButton.style.backgroundColor = 'blue';
-        continueButton.style.color = 'white';
-        continueButton.style.fontSize = '20px';
-        continueButton.style.border = 'none';
-        continueButton.style.padding = '10px';
-        document.body.appendChild(continueButton);
-
-        continueButton.addEventListener('click', () => {
-            continueButton.remove();
-            this.startGame();
-        });
     }
 
     async loadNewNPC() {
@@ -187,7 +120,6 @@ class Game {
             this.player.move();
             this.player.draw(this.ctx, this.playerSprite);
 
-            // Check if player is near the NPC
             if (this.currentNPC && Math.abs(this.player.x - this.currentNPC.x) < 50) {
                 this.playerNearNPC = true;
             } else {
@@ -211,13 +143,32 @@ class Game {
         }
     }
 
-    startGame() {
-        this.canvas.style.display = 'block';
-        this.player = new Player(0, 250, this.canvas.width);
-        this.questStage = 0;
-        this.lettersCollected = [];
-        this.loadNewNPC();
-        this.start();
+    async generateHint(userGuess, correctAnswer) {
+        try {
+            const response = await fetch('https://api.openai.com/v1/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer YOUR_OPENAI_API_KEY`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: "gpt-4",
+                    prompt: `Give a helpful hint based on the player's guess: "${userGuess}". The correct answer is "${correctAnswer}". Make the hint more detailed and specific to guide them.`,
+                    max_tokens: 60,
+                    temperature: 0.7
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].text.trim();
+        } catch (error) {
+            console.error("Error generating hint:", error);
+            return "Sorry, I'm having trouble thinking of a good hint.";
+        }
     }
 
     async handleGuess(userGuess) {
@@ -226,8 +177,14 @@ class Game {
             this.lettersCollected.push(this.getRandomLetter());
             this.startNextLevel();
         } else {
-            alert('Incorrect guess.');
+            const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
+            alert(`Incorrect guess. Hint: ${hint}`);
         }
+    }
+
+    getRandomLetter() {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
     }
 
     async startNextLevel() {
@@ -235,9 +192,13 @@ class Game {
         this.loadNewNPC();
     }
 
-    getRandomLetter() {
-        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    startGame() {
+        this.canvas.style.display = 'block';
+        this.player = new Player(0, 250, this.canvas.width);
+        this.questStage = 0;
+        this.lettersCollected = [];
+        this.loadNewNPC();
+        this.start();
     }
 
     start() {
