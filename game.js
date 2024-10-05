@@ -56,7 +56,7 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = ctx.canvas.width * 0.7; // Adjusted size for mobile
+        const bubbleWidth = ctx.canvas.width * 0.6; // Adjusted size for mobile
         const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
         const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
         const bubbleY = ctx.canvas.height * 0.05; // Moved up slightly for better visibility
@@ -66,7 +66,7 @@ class NPC extends Character {
 
         // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const imgWidth = bubbleWidth * 0.6;
+            const imgWidth = bubbleWidth * 0.5; // Reduced image size to fit better
             const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
             const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
             const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
