@@ -18,7 +18,7 @@ class Character {
 class Player extends Character {
     constructor(x, y, canvasWidth) {
         super(x, y, 60, 100, 'Player');
-        this.speed = 2;
+        this.speed = 2; // Adjust speed if necessary
         this.canvasWidth = canvasWidth;
         this.isMoving = false;
     }
@@ -28,7 +28,7 @@ class Player extends Character {
             this.x += this.speed;
             this.frame = (this.frame + 1) % 2;
             if (this.x > this.canvasWidth) {
-                this.x = -this.width;
+                this.x = -this.width; // Loop the player around the screen
             }
         }
     }
@@ -45,22 +45,25 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            const bubbleSize = 220;  // Diameter of the thought bubble
+            const bubbleSize = 200;  // Adjusted diameter of the thought bubble
             const imgAspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleSize * imgAspectRatio;
-            let imgHeight = bubbleSize;
+            let imgWidth, imgHeight;
 
-            if (imgWidth > bubbleSize) {
+            // Ensure the image fits properly in the bubble
+            if (imgAspectRatio > 1) {
                 imgWidth = bubbleSize;
                 imgHeight = bubbleSize / imgAspectRatio;
+            } else {
+                imgHeight = bubbleSize;
+                imgWidth = bubbleSize * imgAspectRatio;
             }
 
-            ctx.drawImage(this.faceImage, this.x + 140, this.y - imgHeight - 40, imgWidth, imgHeight); // Position the image inside the thought bubble
+            ctx.drawImage(this.faceImage, this.x + 140, this.y - imgHeight - 40, imgWidth, imgHeight); // Positioned inside the thought bubble
         }
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleSize = 240;  // Increased size of the thought bubble
+        const bubbleSize = 240;  // Size of the thought bubble
         ctx.beginPath();
         ctx.arc(this.x + 160, this.y - 100, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble
         ctx.moveTo(this.x + 60, this.y - 40);
@@ -119,7 +122,7 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+        this.ctx.fillText('SPY GAME', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
         const startButton = document.createElement('button');
         startButton.textContent = 'START GAME';
@@ -157,7 +160,7 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking.', 50, 150);
+        this.ctx.fillText('Guess what the spy on the street is thinking.', 50, 150);
         this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
 
         const continueButton = document.createElement('button');
