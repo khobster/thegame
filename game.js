@@ -153,7 +153,17 @@ class Game {
         this.canvas.width = 800;
         this.canvas.height = 400;
 
-        this.showTitleScreen();
+        this.background = new Image();
+        this.background.src = 'background.png';  // Make sure the path to the image is correct
+
+        // Set up event listeners for background loading
+        this.background.onload = () => {
+            this.showTitleScreen();  // Only show the title screen after the background image is loaded
+        };
+
+        this.background.onerror = () => {
+            console.error("Failed to load the background image.");
+        };
     }
 
     showTitleScreen() {
@@ -233,13 +243,17 @@ class Game {
     }
 
     drawBackground() {
-        this.ctx.drawImage(this.background, 0, 0);
+        if (this.background) {
+            this.ctx.drawImage(this.background, 0, 0, this.canvas.width, this.canvas.height);
+        }
     }
 
     update() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // Draw the background first, if it's loaded
         this.drawBackground();
+        
         this.player.move();
         this.player.draw(this.ctx, this.playerSprite);
 
@@ -339,7 +353,7 @@ class Game {
             matrix[0][j] = j;
         }
         for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
+            for (let j = 1; i <= a.length; j++) {
                 if (b.charAt(i - 1) === a.charAt(j - 1)) {
                     matrix[i][j] = matrix[i - 1][j - 1];
                 } else {
