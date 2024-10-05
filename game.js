@@ -38,7 +38,7 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 200; // Adjust this value to change the bubble size
+        this.bubbleSize = 300; // Increased bubble size
     }
 
     draw(ctx, sprite) {
@@ -51,27 +51,41 @@ class NPC extends Character {
 
     drawThoughtBubble(ctx) {
         ctx.beginPath();
-        ctx.arc(this.x + this.width / 2, this.y - this.bubbleSize / 2, this.bubbleSize / 2, 0, Math.PI * 2, true);
-        ctx.moveTo(this.x + this.width / 2 - 20, this.y);
-        ctx.quadraticCurveTo(this.x + this.width / 2, this.y - 20, this.x + this.width / 2 + 20, this.y);
+        ctx.moveTo(this.x + this.width / 2, this.y);
+        ctx.bezierCurveTo(
+            this.x - 40, this.y - 60,
+            this.x - 40, this.y - this.bubbleSize + 60,
+            this.x + this.width / 2, this.y - this.bubbleSize
+        );
+        ctx.bezierCurveTo(
+            this.x + this.width + 40, this.y - this.bubbleSize + 60,
+            this.x + this.width + 40, this.y - 60,
+            this.x + this.width / 2, this.y
+        );
         ctx.fillStyle = 'white';
         ctx.fill();
         ctx.stroke();
+
+        // Small bubbles
+        [20, 10, 5].forEach((size, index) => {
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 2 - 20 + index * 15, 
+                    this.y + 10 - index * 10, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
     }
 
     drawFaceImage(ctx) {
-        const bubblePadding = 10;
-        const maxWidth = this.bubbleSize - bubblePadding * 2;
-        const maxHeight = this.bubbleSize - bubblePadding * 2;
-        const imgAspectRatio = this.faceImage.width / this.faceImage.height;
-        let imgWidth, imgHeight;
+        if (!this.faceImage) return;
 
-        if (imgAspectRatio > 1) {
-            imgWidth = maxWidth;
-            imgHeight = imgWidth / imgAspectRatio;
-        } else {
-            imgHeight = maxHeight;
-            imgWidth = imgHeight * imgAspectRatio;
+        const aspectRatio = this.faceImage.width / this.faceImage.height;
+        let imgWidth = this.bubbleSize * 0.8;
+        let imgHeight = imgWidth / aspectRatio;
+
+        if (imgHeight > this.bubbleSize * 0.8) {
+            imgHeight = this.bubbleSize * 0.8;
+            imgWidth = imgHeight * aspectRatio;
         }
 
         const imgX = this.x + this.width / 2 - imgWidth / 2;
@@ -98,8 +112,10 @@ class Game {
         this.npcSprite.src = 'npc_sprite_0.png';
 
         this.lettersCollected = [];
+        this.scrambledLetters = '';
         this.questStage = 0;
-        this.finalPuzzleWord = this.getRandomWord();
+        this.finalPuzzleWord = null;
+        this.getRandomWord().then(word => this.finalPuzzleWord = word);
         this.player = new Player(0, 250, this.canvas.width);
         this.currentNPC = null;
 
@@ -202,12 +218,10 @@ class Game {
                 img.src = data.thumbnail.source;
                 img.onload = () => {
                     this.currentNPC.faceImage = img;
-                    this.currentNPC.correctAnswer = data.title.split(" ")[0].toLowerCase(); // Use only one word
-                    console.log(`Loaded NPC image for ${this.currentNPC.name}`);
                 };
-            } else {
-                console.error('Failed to load Wikipedia image.');
             }
+            this.currentNPC.correctAnswer = data.title.toLowerCase();
+            console.log(`Loaded NPC image for ${this.currentNPC.name}. Answer: ${this.currentNPC.correctAnswer}`);
         } catch (error) {
             console.error('Error fetching Wikipedia image:', error);
         }
@@ -237,7 +251,7 @@ class Game {
             this.currentNPC.draw(this.ctx, this.npcSprite);
         }
 
-        this.displayScrambledLetters();
+        this.displayCollectedLetters();
     }
 
     displayInteractionPrompt() {
@@ -246,12 +260,11 @@ class Game {
         this.ctx.fillText('Press Enter to interact', this.player.x, this.player.y - 20);
     }
 
-    displayScrambledLetters() {
+    displayCollectedLetters() {
         if (this.lettersCollected.length > 0) {
-            const scrambled = this.lettersCollected.sort(() => Math.random() - 0.5).join('');
             this.ctx.font = '20px Arial';
             this.ctx.fillStyle = 'black';
-            this.ctx.fillText(`Letters collected (scrambled): ${scrambled}`, 10, 30);
+            this.ctx.fillText(`Letters collected: ${this.scrambledLetters}`, 10, 30);
         }
 
         if (this.lettersCollected.length >= 5) {
@@ -285,9 +298,9 @@ class Game {
     }
 
     async handleGuess(userGuess) {
-        if (userGuess.toLowerCase() === this.currentNPC.correctAnswer) {
+        if (userGuess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
             alert('Correct! You guessed the Wikipedia entry.');
-            this.lettersCollected.push(this.getRandomLetter());
+            this.addLetterToCollection();
             this.startNextLevel();
         } else {
             const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
@@ -300,9 +313,27 @@ class Game {
         return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
     }
 
-    getRandomWord() {
-        const words = ["EXAMPLE", "PUZZLE", "ANSWER", "MYSTERY", "HINTS"]; // Example puzzle words
-        return words[Math.floor(Math.random() * words.length)];
+    addLetterToCollection() {
+        const newLetter = this.getRandomLetter();
+        this.lettersCollected.push(newLetter);
+        this.scrambleLetters();
+    }
+
+    scrambleLetters() {
+        this.scrambledLetters = [...this.lettersCollected]
+            .sort(() => Math.random() - 0.5)
+            .join('');
+    }
+
+    async getRandomWord() {
+        try {
+            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/title');
+            const data = await response.json();
+            return data.items[0].title.split(' ')[0].toUpperCase();
+        } catch (error) {
+            console.error('Error fetching random word:', error);
+            return "PUZZLE"; // Fallback word
+        }
     }
 
     async startNextLevel() {
@@ -323,7 +354,9 @@ class Game {
         this.player = new Player(0, 250, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
-        this.finalPuzzleWord = this.getRandomWord();  // Reset puzzle word for each game
+        this.scrambledLetters = '';
+        this.finalPuzzleWord = null;
+        this.getRandomWord().then(word => this.finalPuzzleWord = word);
         this.loadNewNPC();
         this.start();
     }
@@ -349,7 +382,9 @@ class Game {
     interactWithNPC() {
         if (this.playerNearNPC) {
             const userGuess = prompt('Enter your guess for the Wikipedia entry:');
-            this.handleGuess(userGuess);
+            if (userGuess) {
+                this.handleGuess(userGuess);
+            }
         }
     }
 }
