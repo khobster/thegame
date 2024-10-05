@@ -166,23 +166,33 @@ class Game {
 
     showInstructionScreen() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '20px Arial';
+        
+        const instructions = [
+            "Use arrow keys or swipe to move.",
+            "Approach NPCs to interact.",
+            "Guess what the spy is thinking.",
+            "Each correct guess gives you",
+            "a letter for the final puzzle."
+        ];
+        
+        this.ctx.font = '18px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Use arrow keys to move. Approach NPCs to interact.', 50, 150);
-        this.ctx.fillText('Guess what the spy on the street is thinking.', 50, 180);
-        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 210);
+        this.ctx.textAlign = 'center';
+        
+        instructions.forEach((line, index) => {
+            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
+        });
 
         const continueButton = document.createElement('button');
         continueButton.textContent = 'CONTINUE';
         continueButton.style.position = 'absolute';
         continueButton.style.left = '50%';
-        continueButton.style.top = '60%';
+        continueButton.style.bottom = '20%';
         continueButton.style.transform = 'translateX(-50%)';
         continueButton.style.fontSize = '20px';
-        continueButton.style.padding = '10px';
+        continueButton.style.padding = '10px 20px';
         document.body.appendChild(continueButton);
 
         continueButton.addEventListener('click', () => {
@@ -242,13 +252,11 @@ class Game {
     }
 
     showGuessingUI() {
-        this.guessInput.style.display = 'block';
-        this.guessButton.style.display = 'block';
+        document.getElementById('inputArea').style.display = 'flex';
     }
 
     hideGuessingUI() {
-        this.guessInput.style.display = 'none';
-        this.guessButton.style.display = 'none';
+        document.getElementById('inputArea').style.display = 'none';
         this.hintArea.textContent = '';
     }
 
@@ -339,6 +347,7 @@ class Game {
 
     startGame() {
         this.canvas.style.display = 'block';
+        document.getElementById('inputArea').style.display = 'flex';
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
