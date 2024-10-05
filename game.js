@@ -18,7 +18,7 @@ class Character {
 class Player extends Character {
     constructor(x, y, canvasWidth) {
         super(x, y, 60, 100, 'Player');
-        this.speed = 2; // Adjust speed if necessary
+        this.speed = 2;
         this.canvasWidth = canvasWidth;
         this.isMoving = false;
     }
@@ -45,30 +45,30 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            const bubbleSize = 240;  // Adjusted larger size for the thought bubble
+            const bubbleSize = 220;  // Adjusted diameter of the thought bubble
             const imgAspectRatio = this.faceImage.width / this.faceImage.height;
             let imgWidth, imgHeight;
 
             // Ensure the image fits properly in the bubble
             if (imgAspectRatio > 1) {
-                imgWidth = bubbleSize * 0.9;  // Adjust to fit within the bubble
-                imgHeight = bubbleSize * 0.9 / imgAspectRatio;
+                imgWidth = bubbleSize;
+                imgHeight = bubbleSize / imgAspectRatio;
             } else {
-                imgHeight = bubbleSize * 0.9;
-                imgWidth = bubbleSize * 0.9 * imgAspectRatio;
+                imgHeight = bubbleSize;
+                imgWidth = bubbleSize * imgAspectRatio;
             }
 
-            ctx.drawImage(this.faceImage, this.x + 120, this.y - imgHeight - 60, imgWidth, imgHeight); // Positioned inside the thought bubble
+            ctx.drawImage(this.faceImage, this.x + 140, this.y - imgHeight - 60, imgWidth, imgHeight); // Positioned inside the thought bubble
         }
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleSize = 280;  // Increased size for the thought bubble
+        const bubbleSize = 260;  // Size of the thought bubble, increased for better fit
         ctx.beginPath();
-        ctx.arc(this.x + 160, this.y - 80, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble
-        ctx.moveTo(this.x + 60, this.y - 40);
-        ctx.lineTo(this.x + 50, this.y - 10);
-        ctx.lineTo(this.x + 60, this.y + 10);
+        ctx.arc(this.x + 180, this.y - 120, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble, positioned to the right
+        ctx.moveTo(this.x + 80, this.y - 40);
+        ctx.lineTo(this.x + 70, this.y - 20);
+        ctx.lineTo(this.x + 80, this.y);
         ctx.fillStyle = 'white';
         ctx.fill();
         ctx.stroke();
@@ -113,23 +113,6 @@ class Game {
         this.solveButton.addEventListener('click', () => {
             const puzzleGuess = prompt("Enter your guess for the final word:");
             this.handleFinalPuzzleGuess(puzzleGuess);
-        });
-
-        // Add event listeners for player movement
-        this.addMovementListeners();
-    }
-
-    addMovementListeners() {
-        document.addEventListener('keydown', (event) => {
-            if (event.code === 'ArrowRight') {
-                this.player.isMoving = true;
-            }
-        });
-
-        document.addEventListener('keyup', (event) => {
-            if (event.code === 'ArrowRight') {
-                this.player.isMoving = false;
-            }
         });
     }
 
@@ -343,14 +326,6 @@ class Game {
             requestAnimationFrame(gameLoop);
         };
         gameLoop();
-    }
-
-    handleInteraction(x, y) {
-        if (this.currentNPC &&
-            x >= this.currentNPC.x && x <= this.currentNPC.x + this.currentNPC.width &&
-            y >= this.currentNPC.y && y <= this.currentNPC.y + this.currentNPC.height) {
-            console.log(`Interacted with ${this.currentNPC.name}`);
-        }
     }
 }
 
