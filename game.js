@@ -51,34 +51,30 @@ class NPC extends Character {
     drawThoughtBubble(ctx) {
         const bubbleWidth = this.bubbleSize * 1.5;
         const bubbleHeight = this.bubbleSize * 1.2;
-        const bubbleX = this.x + this.width + 20;
-        const bubbleY = this.y - bubbleHeight / 2;
+        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
+        const bubbleY = this.y - bubbleHeight - 20;
 
         // Main bubble
         ctx.fillStyle = 'white';
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.ellipse(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight / 2, bubbleWidth / 2, bubbleHeight / 2, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
 
         // Connecting bubbles
-        [15, 10, 5].forEach((size, index) => {
+        [20, 15, 10].forEach((size, index) => {
             ctx.beginPath();
-            ctx.arc(this.x + this.width + 5 + index * 10, this.y + this.height / 2 - index * 5, size, 0, Math.PI * 2);
+            ctx.arc(this.x + this.width / 2, this.y - size - index * 15, size, 0, Math.PI * 2);
             ctx.fill();
-            ctx.stroke();
         });
 
         // Draw image inside bubble
         if (this.faceImage) {
             const aspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleWidth * 0.8;
+            let imgWidth = bubbleWidth * 0.9;
             let imgHeight = imgWidth / aspectRatio;
 
-            if (imgHeight > bubbleHeight * 0.8) {
-                imgHeight = bubbleHeight * 0.8;
+            if (imgHeight > bubbleHeight * 0.9) {
+                imgHeight = bubbleHeight * 0.9;
                 imgWidth = imgHeight * aspectRatio;
             }
 
@@ -127,6 +123,8 @@ class Game {
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+
+        this.addTouchControls();
     }
 
     resizeCanvas() {
@@ -138,6 +136,26 @@ class Game {
         if (this.currentNPC) {
             this.currentNPC.y = this.canvas.height - 150;
         }
+    }
+
+    addTouchControls() {
+        let touchStartX = 0;
+        this.canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+        this.canvas.addEventListener('touchmove', (e) => {
+            const touchEndX = e.touches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            if (diff > 0) {
+                this.player.direction = 1;
+            } else if (diff < 0) {
+                this.player.direction = -1;
+            }
+            touchStartX = touchEndX;
+        });
+        this.canvas.addEventListener('touchend', () => {
+            this.player.direction = 0;
+        });
     }
 
     showTitleScreen() {
@@ -261,10 +279,7 @@ class Game {
     }
 
     displayCollectedLetters() {
-        this.lettersCollectedDisplay.textContent = `Letters: ${this.scrambledLetters}`;
-        if (this.lettersCollected.length >= 5) {
-            this.solveButton.style.display = 'block';
-        }
+        this.lettersCollectedDisplay.textContent = this.scrambledLetters;
     }
 
     async generateHint(userGuess, correctAnswer) {
@@ -347,7 +362,8 @@ class Game {
 
     startGame() {
         this.canvas.style.display = 'block';
-        document.getElementById('inputArea').style.display = 'flex';
+        document.getElementById('inputArea').style.display = 'none'; // Hide initially
+        document.getElementById('solveButton').style.display = 'block';
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
