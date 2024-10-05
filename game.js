@@ -49,15 +49,14 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = this.bubbleSize * 2;
-        const bubbleHeight = this.bubbleSize * 1.5;
-        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
-        const bubbleY = this.y - bubbleHeight - 20;
+        const bubbleSize = Math.min(this.bubbleSize, ctx.canvas.width * 0.4);
+        const bubbleX = this.x + this.width / 2;
+        const bubbleY = this.y - bubbleSize / 2 - 20;
 
         // Main bubble
         ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.ellipse(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight / 2, bubbleWidth / 2, bubbleHeight / 2, 0, 0, Math.PI * 2);
+        ctx.arc(bubbleX, bubbleY, bubbleSize / 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
@@ -72,16 +71,16 @@ class NPC extends Character {
         // Draw image inside bubble
         if (this.faceImage) {
             const aspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleWidth * 0.8;
+            let imgWidth = bubbleSize * 0.8;
             let imgHeight = imgWidth / aspectRatio;
 
-            if (imgHeight > bubbleHeight * 0.8) {
-                imgHeight = bubbleHeight * 0.8;
+            if (imgHeight > bubbleSize * 0.8) {
+                imgHeight = bubbleSize * 0.8;
                 imgWidth = imgHeight * aspectRatio;
             }
 
-            const imgX = bubbleX + bubbleWidth / 2 - imgWidth / 2;
-            const imgY = bubbleY + bubbleHeight / 2 - imgHeight / 2;
+            const imgX = bubbleX - imgWidth / 2;
+            const imgY = bubbleY - imgHeight / 2;
 
             ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
@@ -154,6 +153,9 @@ class Game {
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
 
         this.addTouchControls();
+        
+        // Hide elements initially
+        this.hideGameElements();
     }
 
     resizeCanvas() {
@@ -188,10 +190,11 @@ class Game {
     }
 
     showTitleScreen() {
+        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
+        this.ctx.font = '30px "Archivo Narrow"';
         this.ctx.fillStyle = 'white';
         this.ctx.fillText('SPY GAME', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
@@ -212,6 +215,7 @@ class Game {
     }
 
     showInstructionScreen() {
+        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -224,7 +228,7 @@ class Game {
             "a letter for the final puzzle."
         ];
         
-        this.ctx.font = '18px Arial';
+        this.ctx.font = '18px "Archivo Narrow"';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
         
@@ -265,7 +269,7 @@ class Game {
             console.log(`Loaded NPC image for ${this.currentNPC.name}. Answer: ${this.currentNPC.correctAnswer}`);
         } catch (error) {
             console.error('Error fetching Wikipedia image:', error);
-            }
+        }
     }
 
     drawBackground() {
@@ -340,8 +344,11 @@ class Game {
     }
 
     async handleGuess(userGuess) {
-        if (userGuess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
-            this.hintArea.textContent = 'Correct! You guessed the Wikipedia entry.';
+        const correctWords = this.currentNPC.correctAnswer.toLowerCase().split(' ');
+        const userWords = userGuess.toLowerCase().split(' ');
+        
+        if (correctWords.some(word => userWords.includes(word))) {
+            this.hintArea.textContent = 'Correct! You guessed part of the Wikipedia entry.';
             this.addLetterToCollection();
             this.startNextLevel();
         } else {
@@ -393,10 +400,8 @@ class Game {
     }
 
     startGame() {
+        this.showGameElements();
         this.canvas.style.display = 'block';
-        document.getElementById('inputArea').style.display = 'none';
-        document.getElementById('solveButton').style.display = 'none';
-        document.getElementById('lettersCollected').style.display = 'none';
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
@@ -422,6 +427,20 @@ class Game {
 
     handleKeyUp(e) {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
+    }
+
+    hideGameElements() {
+        this.guessInput.style.display = 'none';
+        this.guessButton.style.display = 'none';
+        this.solveButton.style.display = 'none';
+        this.lettersCollectedDisplay.style.display = 'none';
+    }
+
+    showGameElements() {
+        this.guessInput.style.display = 'block';
+        this.guessButton.style.display = 'block';
+        this.solveButton.style.display = 'block';
+        this.lettersCollectedDisplay.style.display = 'block';
     }
 }
 
