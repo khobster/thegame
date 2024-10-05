@@ -38,7 +38,7 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 200;
+        this.bubbleSize = 250; // Increased bubble size
     }
 
     draw(ctx, sprite) {
@@ -52,24 +52,24 @@ class NPC extends Character {
         const bubbleWidth = this.bubbleSize * 1.2;
         const bubbleHeight = this.bubbleSize;
         const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
-        const bubbleY = this.y - bubbleHeight - 20;
+        const bubbleY = this.y - bubbleHeight - 40;
 
-        // Draw main bubble
+        // Main bubble
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(bubbleX, bubbleY + bubbleHeight);
-        ctx.lineTo(bubbleX - 10, bubbleY + bubbleHeight + 10);
-        ctx.lineTo(bubbleX + 10, bubbleY + bubbleHeight);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
         ctx.ellipse(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight / 2, bubbleWidth / 2, bubbleHeight / 2, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+
+        // Thought bubbles connecting to NPC
+        [25, 15, 8].forEach((size, index) => {
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 2, this.y - size - index * 15, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
 
         // Draw image inside bubble
         if (this.faceImage) {
@@ -121,19 +121,18 @@ class Game {
         this.guessInput.style.position = 'absolute';
         this.guessInput.style.bottom = '10px';
         this.guessInput.style.left = '10px';
-        this.guessInput.style.width = 'calc(100% - 100px)';
+        this.guessInput.style.width = '200px'; // Adjusted width
+        this.guessInput.style.display = 'none';
         document.body.appendChild(this.guessInput);
 
         this.submitButton = document.createElement('button');
         this.submitButton.textContent = 'Guess';
         this.submitButton.style.position = 'absolute';
         this.submitButton.style.bottom = '10px';
-        this.submitButton.style.right = '10px';
+        this.submitButton.style.left = '220px'; // Positioned next to input
+        this.submitButton.style.display = 'none';
         this.submitButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
         document.body.appendChild(this.submitButton);
-
-        this.guessInput.style.display = 'none';
-        this.submitButton.style.display = 'none';
 
         this.solveButton = document.createElement('button');
         this.solveButton.textContent = 'SOLVE PUZZLE';
@@ -337,6 +336,7 @@ class Game {
             const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
             alert(`Incorrect guess. Hint: ${hint}`);
         }
+        this.guessInput.value = ''; // Clear input after guess
     }
 
     getRandomLetter() {
