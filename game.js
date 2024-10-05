@@ -80,10 +80,92 @@ class Game {
 
         this.lettersCollected = [];
         this.questStage = 0;
+        this.finalPuzzleWord = this.getRandomWord();
         this.player = new Player(0, 250, this.canvas.width);
         this.currentNPC = null;
 
         this.playerNearNPC = false;
+
+        // Button to guess the final word puzzle
+        this.solveButton = document.createElement('button');
+        this.solveButton.textContent = 'SOLVE PUZZLE';
+        this.solveButton.style.position = 'absolute';
+        this.solveButton.style.left = '50%';
+        this.solveButton.style.bottom = '50px';
+        this.solveButton.style.transform = 'translateX(-50%)';
+        this.solveButton.style.display = 'none';
+        document.body.appendChild(this.solveButton);
+
+        this.solveButton.addEventListener('click', () => {
+            const puzzleGuess = prompt("Enter your guess for the final word:");
+            this.handleFinalPuzzleGuess(puzzleGuess);
+        });
+    }
+
+    showTitleScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+
+        const startButton = document.createElement('button');
+        startButton.textContent = 'START GAME';
+        startButton.style.position = 'absolute';
+        startButton.style.left = '50%';
+        startButton.style.top = '60%';
+        startButton.style.transform = 'translateX(-50%)';
+        startButton.style.backgroundColor = 'red';
+        startButton.style.color = 'white';
+        startButton.style.fontSize = '20px';
+        startButton.style.border = 'none';
+        startButton.style.padding = '10px';
+        startButton.style.cursor = 'pointer';
+        startButton.style.animation = 'blink 1s infinite';
+        document.body.appendChild(startButton);
+
+        startButton.addEventListener('click', () => {
+            startButton.remove();
+            this.showInstructionScreen();
+        });
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes blink {
+                50% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    showInstructionScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
+        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking.', 50, 150);
+        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
+
+        const continueButton = document.createElement('button');
+        continueButton.textContent = 'CONTINUE';
+        continueButton.style.position = 'absolute';
+        continueButton.style.left = '50%';
+        continueButton.style.top = '60%';
+        continueButton.style.transform = 'translateX(-50%)';
+        continueButton.style.backgroundColor = 'blue';
+        continueButton.style.color = 'white';
+        continueButton.style.fontSize = '20px';
+        continueButton.style.border = 'none';
+        continueButton.style.padding = '10px';
+        document.body.appendChild(continueButton);
+
+        continueButton.addEventListener('click', () => {
+            continueButton.remove();
+            this.startGame();
+        });
     }
 
     async loadNewNPC() {
@@ -141,6 +223,10 @@ class Game {
             this.ctx.fillStyle = 'black';
             this.ctx.fillText(`Letters collected (scrambled): ${scrambled}`, 10, 30);
         }
+
+        if (this.lettersCollected.length >= 5) {
+            this.solveButton.style.display = 'block';
+        }
     }
 
     async generateHint(userGuess, correctAnswer) {
@@ -187,9 +273,22 @@ class Game {
         return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
     }
 
+    getRandomWord() {
+        const words = ["EXAMPLE", "PUZZLE", "ANSWER", "MYSTERY", "HINTS"]; // Example puzzle words
+        return words[Math.floor(Math.random() * words.length)];
+    }
+
     async startNextLevel() {
         this.questStage++;
         this.loadNewNPC();
+    }
+
+    async handleFinalPuzzleGuess(puzzleGuess) {
+        if (puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
+            alert("Congratulations! You solved the final puzzle!");
+        } else {
+            alert("Incorrect puzzle guess. Keep collecting letters!");
+        }
     }
 
     startGame() {
@@ -197,6 +296,7 @@ class Game {
         this.player = new Player(0, 250, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
+        this.finalPuzzleWord = this.getRandomWord();  // Reset puzzle word for each game
         this.loadNewNPC();
         this.start();
     }
