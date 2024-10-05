@@ -9,7 +9,9 @@ class Character {
     }
 
     draw(ctx, sprite) {
-        ctx.drawImage(sprite, this.frame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+        if (sprite) {
+            ctx.drawImage(sprite, this.frame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+        }
         ctx.fillStyle = 'black';
         ctx.font = '16px Arial';
         ctx.fillText(this.name, this.x, this.y - 10);
@@ -156,9 +158,18 @@ class Game {
         this.background = new Image();
         this.background.src = 'background.png';  // Make sure the path to the image is correct
 
-        // Set up event listeners for background loading
+        this.playerSprite = new Image();
+        this.playerSprite.src = 'player_sprite.png'; // Make sure this path is correct too
+
+        this.npcSprite = new Image();
+        this.npcSprite.src = 'npc_sprite_0.png';
+
         this.background.onload = () => {
-            this.showTitleScreen();  // Only show the title screen after the background image is loaded
+            this.playerSprite.onload = () => {
+                this.npcSprite.onload = () => {
+                    this.showTitleScreen();
+                };
+            };
         };
 
         this.background.onerror = () => {
@@ -168,8 +179,10 @@ class Game {
 
     showTitleScreen() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'white';
         this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
         const startButton = document.createElement('button');
@@ -178,20 +191,36 @@ class Game {
         startButton.style.left = '50%';
         startButton.style.top = '60%';
         startButton.style.transform = 'translateX(-50%)';
+        startButton.style.backgroundColor = 'red';
+        startButton.style.color = 'white';
+        startButton.style.fontSize = '20px';
+        startButton.style.border = 'none';
+        startButton.style.padding = '10px';
+        startButton.style.cursor = 'pointer';
+        startButton.style.animation = 'blink 1s infinite';
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
             startButton.remove();
             this.showInstructionScreen();
         });
+
+        // Add blinking animation for the "START GAME" button
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes blink {
+                50% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     showInstructionScreen() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
         this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
         this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking', 50, 150);
         this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
@@ -202,6 +231,11 @@ class Game {
         continueButton.style.left = '50%';
         continueButton.style.top = '60%';
         continueButton.style.transform = 'translateX(-50%)';
+        continueButton.style.backgroundColor = 'blue';
+        continueButton.style.color = 'white';
+        continueButton.style.fontSize = '20px';
+        continueButton.style.border = 'none';
+        continueButton.style.padding = '10px';
         document.body.appendChild(continueButton);
 
         continueButton.addEventListener('click', () => {
