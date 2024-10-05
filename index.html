@@ -4,91 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Spy Game</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Roboto', sans-serif;
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            height: 100%; 
+            overflow: hidden; 
+            font-family: 'Arial', sans-serif;
         }
-        #game-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
+        #game-container { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
         }
-        #gameCanvas {
-            width: 100%;
-            height: 100%;
+        #gameCanvas { 
+            width: 100%; 
+            height: 100%; 
         }
-        #hintArea {
-            position: absolute;
-            top: 50px;
-            left: 10px;
-            right: 10px;
-            padding: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            font-size: 18px;
-            text-align: center;
-            display: none;
+        #hintArea { 
+            position: absolute; 
+            top: 50px; 
+            left: 10px; 
+            right: 10px; 
+            padding: 10px; 
+            background: rgba(0,0,0,0.8); 
+            color: white; 
+            font-size: 18px; 
+            text-align: center; 
+            border-radius: 10px;
         }
-        #inputArea {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            display: none;
+        #inputArea { 
+            position: absolute; 
+            bottom: 10px; 
+            left: 10px; 
+            right: 10px; 
+            display: flex; 
         }
-        #guessInput {
-            width: calc(100% - 70px);
-            padding: 10px;
-            font-size: 16px;
-        }
-        #guessButton {
-            width: 60px;
-            padding: 10px;
-            font-size: 16px;
-        }
-        #lettersCollected {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 24px;
-            font-weight: bold;
-            color: yellow;
-        }
-        #solveButton {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 40px;
-            height: 40px;
-            background: url('dice.png') no-repeat center center;
-            background-size: contain;
+        #guessInput { 
+            flex-grow: 1; 
+            margin-right: 5px; 
+            font-size: 16px; 
+            padding: 10px; 
+            border-radius: 20px;
             border: none;
-            cursor: pointer;
         }
-        #puzzleDialog {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        #guessButton { 
+            width: 80px; 
+            font-size: 16px; 
+            border-radius: 20px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+        }
+        #lettersCollected { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: yellow; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #solveButton { 
+            position: absolute; 
+            top: 10px; 
+            right: 10px; 
+            width: 40px; 
+            height: 40px; 
+            background: url('dice.png') no-repeat center center; 
+            background-size: contain; 
+            border: none; 
+            cursor: pointer; 
+        }
+        #modalOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #modal {
             background: white;
             padding: 20px;
             border-radius: 10px;
-            display: none;
+            text-align: center;
         }
-        #puzzleInput {
+        #modal input {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
         }
-        #puzzleSubmit {
-            width: 100%;
-            padding: 10px;
+        #modal button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -101,10 +120,6 @@
         <div id="inputArea">
             <input type="text" id="guessInput" placeholder="Enter your guess">
             <button id="guessButton">Guess</button>
-        </div>
-        <div id="puzzleDialog">
-            <input type="text" id="puzzleInput" placeholder="Enter your final guess">
-            <button id="puzzleSubmit">Submit</button>
         </div>
     </div>
     <script src="game.js"></script>
