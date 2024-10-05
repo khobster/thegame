@@ -13,11 +13,41 @@
             overflow: hidden;
             font-family: 'DIN Condensed', sans-serif;
         }
+
         #gameCanvas {
             position: absolute;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 100%;
         }
+
+        button {
+            font-family: 'DIN Condensed', sans-serif;
+            font-size: 20px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:active {
+            background-color: #003f7f;
+        }
+
+        #startButton, #continueButton {
+            position: absolute;
+            left: 50%;
+            top: 60%;
+            transform: translate(-50%, -50%);
+        }
+
         #gameUI {
             position: absolute;
             bottom: 10px;
@@ -27,35 +57,46 @@
             justify-content: center;
             align-items: center;
             gap: 10px;
+            padding: 10px;
         }
+
         #guessInput {
             flex: 2;
             padding: 10px;
             font-size: 16px;
+            margin-bottom: 10px;
         }
+
         #guessButton {
             flex: 1;
             padding: 10px;
             font-size: 16px;
         }
+
         #hintArea {
             position: absolute;
             top: 10px;
             left: 10px;
             right: 10px;
             text-align: center;
-            font-size: 20px;
+            font-size: 18px;
             color: white;
-            background-color: black; /* Changed to black */
-            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.8); /* Slight transparency */
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 80%;
+            margin: 0 auto;
         }
+
         #lettersCollected {
             position: absolute;
             top: 50px;
             left: 10px;
             font-size: 24px;
             color: yellow;
+            margin-top: 10px;
         }
+
         #solveButton {
             position: absolute;
             top: 10px;
@@ -70,13 +111,27 @@
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Start Button -->
+    <div id="startButtonWrapper">
+        <button id="startButton">START GAME</button>
+    </div>
+
+    <!-- Game UI -->
     <div id="gameUI">
         <input type="text" id="guessInput" placeholder="Enter your guess">
         <button id="guessButton">Guess</button>
     </div>
+
+    <!-- Hint Area -->
     <div id="hintArea"></div>
+
+    <!-- Letters Collected -->
     <div id="lettersCollected"></div>
+
+    <!-- Solve Button -->
     <button id="solveButton"></button>
+
     <script src="game.js"></script>
 </body>
 </html>
