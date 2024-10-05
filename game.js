@@ -18,19 +18,18 @@ class Character {
 class Player extends Character {
     constructor(x, y, canvasWidth) {
         super(x, y, 60, 100, 'Player');
-        this.speed = 2;
+        this.speed = 5;
         this.canvasWidth = canvasWidth;
-        this.isMoving = false;
+        this.direction = 0; // 0: not moving, -1: left, 1: right
     }
 
     move() {
-        if (this.isMoving) {
-            this.x += this.speed;
+        this.x += this.speed * this.direction;
+        if (this.direction !== 0) {
             this.frame = (this.frame + 1) % 2;
-            if (this.x > this.canvasWidth) {
-                this.x = -this.width; // Loop the player around the screen
-            }
         }
+        if (this.x < 0) this.x = 0;
+        if (this.x > this.canvasWidth - this.width) this.x = this.canvasWidth - this.width;
     }
 }
 
@@ -39,40 +38,46 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
+        this.bubbleSize = 200; // Adjust this value to change the bubble size
     }
 
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            const bubbleSize = 220;  // Adjusted diameter of the thought bubble
-            const imgAspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth, imgHeight;
-
-            // Ensure the image fits properly in the bubble
-            if (imgAspectRatio > 1) {
-                imgWidth = bubbleSize;
-                imgHeight = bubbleSize / imgAspectRatio;
-            } else {
-                imgHeight = bubbleSize;
-                imgWidth = bubbleSize * imgAspectRatio;
-            }
-
-            ctx.drawImage(this.faceImage, this.x + 140, this.y - imgHeight - 60, imgWidth, imgHeight); // Positioned inside the thought bubble
+            this.drawFaceImage(ctx);
         }
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleSize = 260;  // Size of the thought bubble, increased for better fit
         ctx.beginPath();
-        ctx.arc(this.x + 180, this.y - 120, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble, positioned to the right
-        ctx.moveTo(this.x + 80, this.y - 40);
-        ctx.lineTo(this.x + 70, this.y - 20);
-        ctx.lineTo(this.x + 80, this.y);
+        ctx.arc(this.x + this.width / 2, this.y - this.bubbleSize / 2, this.bubbleSize / 2, 0, Math.PI * 2, true);
+        ctx.moveTo(this.x + this.width / 2 - 20, this.y);
+        ctx.quadraticCurveTo(this.x + this.width / 2, this.y - 20, this.x + this.width / 2 + 20, this.y);
         ctx.fillStyle = 'white';
         ctx.fill();
         ctx.stroke();
-        ctx.closePath();
+    }
+
+    drawFaceImage(ctx) {
+        const bubblePadding = 10;
+        const maxWidth = this.bubbleSize - bubblePadding * 2;
+        const maxHeight = this.bubbleSize - bubblePadding * 2;
+        const imgAspectRatio = this.faceImage.width / this.faceImage.height;
+        let imgWidth, imgHeight;
+
+        if (imgAspectRatio > 1) {
+            imgWidth = maxWidth;
+            imgHeight = imgWidth / imgAspectRatio;
+        } else {
+            imgHeight = maxHeight;
+            imgWidth = imgHeight * imgAspectRatio;
+        }
+
+        const imgX = this.x + this.width / 2 - imgWidth / 2;
+        const imgY = this.y - this.bubbleSize / 2 - imgHeight / 2;
+
+        ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
     }
 }
 
@@ -114,6 +119,9 @@ class Game {
             const puzzleGuess = prompt("Enter your guess for the final word:");
             this.handleFinalPuzzleGuess(puzzleGuess);
         });
+
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
     }
 
     showTitleScreen() {
@@ -160,8 +168,9 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Guess what the spy on the street is thinking.', 50, 150);
-        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
+        this.ctx.fillText('Use arrow keys to move. Press Enter to interact with NPCs.', 50, 150);
+        this.ctx.fillText('Guess what the spy on the street is thinking.', 50, 180);
+        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 210);
 
         const continueButton = document.createElement('button');
         continueButton.textContent = 'CONTINUE';
@@ -218,7 +227,7 @@ class Game {
 
             if (this.currentNPC && Math.abs(this.player.x - this.currentNPC.x) < 50) {
                 this.playerNearNPC = true;
-                this.autoPromptGuess();  // Automatically prompt guess when near NPC
+                this.displayInteractionPrompt();
             } else {
                 this.playerNearNPC = false;
             }
@@ -229,6 +238,12 @@ class Game {
         }
 
         this.displayScrambledLetters();
+    }
+
+    displayInteractionPrompt() {
+        this.ctx.font = '16px Arial';
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillText('Press Enter to interact', this.player.x, this.player.y - 20);
     }
 
     displayScrambledLetters() {
@@ -280,13 +295,6 @@ class Game {
         }
     }
 
-    autoPromptGuess() {
-        if (this.playerNearNPC) {
-            const userGuess = prompt('Enter your guess for the Wikipedia entry:');
-            this.handleGuess(userGuess);
-        }
-    }
-
     getRandomLetter() {
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
@@ -326,6 +334,23 @@ class Game {
             requestAnimationFrame(gameLoop);
         };
         gameLoop();
+    }
+
+    handleKeyDown(e) {
+        if (e.key === 'ArrowLeft') this.player.direction = -1;
+        if (e.key === 'ArrowRight') this.player.direction = 1;
+        if (e.key === 'Enter') this.interactWithNPC();
+    }
+
+    handleKeyUp(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
+    }
+
+    interactWithNPC() {
+        if (this.playerNearNPC) {
+            const userGuess = prompt('Enter your guess for the Wikipedia entry:');
+            this.handleGuess(userGuess);
+        }
     }
 }
 
