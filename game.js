@@ -56,17 +56,17 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = ctx.canvas.width * 0.8;
+        const bubbleWidth = ctx.canvas.width * 0.7; // Adjusted size for mobile
         const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
         const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
-        const bubbleY = ctx.canvas.height * 0.1;
+        const bubbleY = ctx.canvas.height * 0.05; // Moved up slightly for better visibility
 
         // Draw thought bubble
         ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
         // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const imgWidth = bubbleWidth * 0.7;
+            const imgWidth = bubbleWidth * 0.6;
             const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
             const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
             const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
@@ -132,8 +132,8 @@ class Game {
     }
 
     resizeCanvas() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        this.canvas.width = window.innerWidth * 0.9; // Added padding for better mobile experience
+        this.canvas.height = window.innerHeight * 0.9;
         if (this.player) {
             this.player.y = this.canvas.height - 150;
         }
@@ -444,7 +444,7 @@ class Game {
         if (this.questStage < 5) {
             setTimeout(() => {
                 this.loadNewNPC();
-                this.hintArea.textContent = "Find the next spy!";
+                this.hintArea.textContent = "Find the next spy
             }, 2000);
         } else {
             this.showFinalPuzzle();
