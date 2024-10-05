@@ -18,18 +18,19 @@ class Character {
 class Player extends Character {
     constructor(x, y, canvasWidth) {
         super(x, y, 60, 100, 'Player');
-        this.speed = 5;
+        this.speed = 2;
         this.canvasWidth = canvasWidth;
-        this.direction = 0; // 0: not moving, -1: left, 1: right
+        this.isMoving = false;
     }
 
     move() {
-        this.x += this.speed * this.direction;
-        if (this.direction !== 0) {
+        if (this.isMoving) {
+            this.x += this.speed;
             this.frame = (this.frame + 1) % 2;
+            if (this.x > this.canvasWidth) {
+                this.x = -this.width;
+            }
         }
-        if (this.x < 0) this.x = 0;
-        if (this.x > this.canvasWidth - this.width) this.x = this.canvasWidth - this.width;
     }
 }
 
@@ -50,39 +51,18 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const canvasWidth = ctx.canvas.width;
-        const canvasHeight = ctx.canvas.height;
-        
-        // Calculate sizes based on the Wikipedia image
-        const maxBubbleWidth = canvasWidth * 0.8;
-        const maxBubbleHeight = canvasHeight * 0.6;
-        const aspectRatio = this.thoughtBubble.width / this.thoughtBubble.height;
-        
-        let bubbleWidth = maxBubbleWidth;
-        let bubbleHeight = bubbleWidth / aspectRatio;
-        
-        if (bubbleHeight > maxBubbleHeight) {
-            bubbleHeight = maxBubbleHeight;
-            bubbleWidth = bubbleHeight * aspectRatio;
-        }
-        
-        const bubbleX = (canvasWidth - bubbleWidth) / 2;
-        const bubbleY = canvasHeight * 0.1;
+        const bubbleWidth = 300;  // Increased size
+        const bubbleHeight = 300; // Increased size
+        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
+        const bubbleY = this.y - bubbleHeight - 20;
 
         // Draw thought bubble
         ctx.drawImage(this.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
         // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const imgAspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleWidth * 0.8;
-            let imgHeight = imgWidth / imgAspectRatio;
-
-            if (imgHeight > bubbleHeight * 0.8) {
-                imgHeight = bubbleHeight * 0.8;
-                imgWidth = imgHeight * imgAspectRatio;
-            }
-
+            const imgWidth = bubbleWidth * 0.8;
+            const imgHeight = bubbleHeight * 0.8;
             const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
             const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
 
@@ -95,8 +75,8 @@ class Game {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
+        this.canvas.width = 800;
+        this.canvas.height = 400;
 
         this.background = new Image();
         this.background.src = 'background.png';
@@ -112,7 +92,7 @@ class Game {
         this.questStage = 0;
         this.finalPuzzleWord = null;
         this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
+        this.player = new Player(0, 250, this.canvas.width);
         this.currentNPC = null;
 
         this.playerNearNPC = false;
@@ -126,82 +106,24 @@ class Game {
 
         this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
 
-        this.modalOverlay = document.createElement('div');
-        this.modalOverlay.id = 'modalOverlay';
-        this.modalOverlay.style.display = 'none';
-        document.body.appendChild(this.modalOverlay);
-
-        this.modal = document.createElement('div');
-        this.modal.id = 'modal';
-        this.modalOverlay.appendChild(this.modal);
-
-        this.modalInput = document.createElement('input');
-        this.modalInput.type = 'text';
-        this.modal.appendChild(this.modalInput);
-
-        this.modalSubmit = document.createElement('button');
-        this.modalSubmit.textContent = 'Submit';
-        this.modal.appendChild(this.modalSubmit);
-
-        this.modalSubmit.addEventListener('click', () => {
-            this.handleFinalPuzzleGuess(this.modalInput.value);
-            this.modalOverlay.style.display = 'none';
-        });
-
         this.solveButton.addEventListener('click', () => {
-            this.modalOverlay.style.display = 'flex';
-            this.modalInput.value = '';
-            this.modalInput.focus();
+            const puzzleGuess = prompt("Enter your guess for the final word:");
+            this.handleFinalPuzzleGuess(puzzleGuess);
         });
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
 
         this.addTouchControls();
-        
-        // Hide elements initially
-        this.hideGameElements();
-    }
-
-    resizeCanvas() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        if (this.player) {
-            this.player.y = this.canvas.height - 150;
-        }
-        if (this.currentNPC) {
-            this.currentNPC.y = this.canvas.height - 150;
-        }
-    }
-
-    addTouchControls() {
-        let touchStartX = 0;
-        this.canvas.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        });
-        this.canvas.addEventListener('touchmove', (e) => {
-            const touchEndX = e.touches[0].clientX;
-            const diff = touchEndX - touchStartX;
-            if (diff > 0) {
-                this.player.direction = 0.5; // Reduced speed
-            } else if (diff < 0) {
-                this.player.direction = -0.5; // Reduced speed
-            }
-            touchStartX = touchEndX;
-        });
-        this.canvas.addEventListener('touchend', () => {
-            this.player.direction = 0;
-        });
     }
 
     showTitleScreen() {
-        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px "Archivo Narrow"';
+        this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('SPY GAME', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
         const startButton = document.createElement('button');
         startButton.textContent = 'START GAME';
@@ -209,8 +131,6 @@ class Game {
         startButton.style.left = '50%';
         startButton.style.top = '60%';
         startButton.style.transform = 'translateX(-50%)';
-        startButton.style.fontSize = '20px';
-        startButton.style.padding = '10px';
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
@@ -220,35 +140,23 @@ class Game {
     }
 
     showInstructionScreen() {
-        this.hideGameElements();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        const instructions = [
-            "Use arrow keys or swipe to walk.",
-            "Approach the spy to interact.",
-            "Guess what he's thinking.",
-            "Each correct guess gives you",
-            "a letter for the final word puzzle."
-        ];
-        
-        this.ctx.font = '18px "Archivo Narrow"';
+        this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.textAlign = 'center';
-        
-        instructions.forEach((line, index) => {
-            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
-        });
+        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
+        this.ctx.fillText('Use arrow keys or swipe to walk.', 50, 150);
+        this.ctx.fillText('Approach the spy to interact.', 50, 180);
+        this.ctx.fillText("Guess what he's thinking.", 50, 210);
+        this.ctx.fillText('Each correct guess gives you a letter for the final word puzzle.', 50, 240);
 
         const continueButton = document.createElement('button');
         continueButton.textContent = 'CONTINUE';
         continueButton.style.position = 'absolute';
         continueButton.style.left = '50%';
-        continueButton.style.bottom = '20%';
+        continueButton.style.top = '70%';
         continueButton.style.transform = 'translateX(-50%)';
-        continueButton.style.fontSize = '20px';
-        continueButton.style.padding = '10px 20px';
         document.body.appendChild(continueButton);
 
         continueButton.addEventListener('click', () => {
@@ -312,15 +220,15 @@ class Game {
     }
 
     showGuessingUI() {
-        document.getElementById('inputArea').style.display = 'flex';
-        document.getElementById('solveButton').style.display = 'block';
-        document.getElementById('lettersCollected').style.display = 'block';
+        this.guessInput.style.display = 'block';
+        this.guessButton.style.display = 'block';
+        this.hintArea.style.display = 'block';
     }
 
     hideGuessingUI() {
-        document.getElementById('inputArea').style.display = 'none';
-        document.getElementById('solveButton').style.display = 'none';
-        this.hintArea.textContent = '';
+        this.guessInput.style.display = 'none';
+        this.guessButton.style.display = 'none';
+        this.hintArea.style.display = 'none';
     }
 
     displayCollectedLetters() {
@@ -343,7 +251,7 @@ class Game {
             this.remainingGuesses--;
             if (this.remainingGuesses > 0) {
                 const hint = await this.generateHint(userGuess, correctAnswer);
-                this.hintArea.textContent = `Incorrect. ${hint} Remaining guesses: ${this.remainingGuesses}`;
+                this.displayHint(hint);
             } else {
                 this.gameOver();
             }
@@ -433,6 +341,11 @@ class Game {
         }
     }
 
+    displayHint(hint) {
+        this.hintArea.textContent = `Hint: ${hint}`;
+        this.hintArea.style.display = 'block';
+    }
+
     handleCorrectGuess() {
         this.hintArea.textContent = "Correct! You've uncovered a letter.";
         this.addLetterToCollection();
@@ -449,11 +362,11 @@ class Game {
     }
 
     gameOver() {
-        this.hideGameElements();
+        this.hideGuessingUI();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px "Archivo Narrow"';
+        this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
         this.ctx.fillText('Game Over!', this.canvas.width / 2, this.canvas.height / 2 - 20);
@@ -465,8 +378,6 @@ class Game {
         restartButton.style.left = '50%';
         restartButton.style.top = '70%';
         restartButton.style.transform = 'translateX(-50%)';
-        restartButton.style.fontSize = '20px';
-        restartButton.style.padding = '10px 20px';
         document.body.appendChild(restartButton);
 
         restartButton.addEventListener('click', () => {
@@ -494,9 +405,9 @@ class Game {
 
     async getRandomWord() {
         try {
-            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/title');
-            const data = await response.json();
-            return data.items[0].title.split(' ')[0].toUpperCase();
+            const response = await fetch('https://random-word-api.herokuapp.com/word');
+            const [word] = await response.json();
+            return word.toUpperCase();
         } catch (error) {
             console.error('Error fetching random word:', error);
             return "PUZZLE"; // Fallback word
@@ -526,11 +437,11 @@ class Game {
     }
 
     showWinScreen() {
-        this.hideGameElements();
+        this.hideGuessingUI();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px "Archivo Narrow"';
+        this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
         this.ctx.fillText('Congratulations!', this.canvas.width / 2, this.canvas.height / 2 - 20);
@@ -542,8 +453,6 @@ class Game {
         restartButton.style.left = '50%';
         restartButton.style.top = '70%';
         restartButton.style.transform = 'translateX(-50%)';
-        restartButton.style.fontSize = '20px';
-        restartButton.style.padding = '10px 20px';
         document.body.appendChild(restartButton);
 
         restartButton.addEventListener('click', () => {
@@ -563,7 +472,6 @@ class Game {
     }
 
     startGame() {
-        this.showGameElements();
         this.canvas.style.display = 'block';
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
@@ -592,18 +500,24 @@ class Game {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
     }
 
-    hideGameElements() {
-        this.guessInput.style.display = 'none';
-        this.guessButton.style.display = 'none';
-        this.solveButton.style.display = 'none';
-        this.lettersCollectedDisplay.style.display = 'none';
-    }
-
-    showGameElements() {
-        this.guessInput.style.display = 'block';
-        this.guessButton.style.display = 'block';
-        this.solveButton.style.display = 'block';
-        this.lettersCollectedDisplay.style.display = 'block';
+    addTouchControls() {
+        let touchStartX = 0;
+        this.canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+        this.canvas.addEventListener('touchmove', (e) => {
+            const touchEndX = e.touches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            if (diff > 0) {
+                this.player.direction = 1;
+            } else if (diff < 0) {
+                this.player.direction = -1;
+            }
+            touchStartX = touchEndX;
+        });
+        this.canvas.addEventListener('touchend', () => {
+            this.player.direction = 0;
+        });
     }
 }
 
