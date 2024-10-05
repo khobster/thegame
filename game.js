@@ -45,20 +45,22 @@ class NPC extends Character {
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
         if (this.faceImage) {
-            // Draw the thought bubble first
+            // Draw the white thought bubble first
             this.drawThoughtBubble(ctx);
-            // Draw the Wikipedia image inside the thought bubble (bigger and clearer)
-            ctx.drawImage(this.faceImage, this.x - 30, this.y - 160, 150, 150);
+            // Draw the Wikipedia image inside the thought bubble
+            ctx.drawImage(this.faceImage, this.x - 35, this.y - 175, 120, 120);  // Adjusted position and size for better alignment
         }
     }
 
-    // Method to draw a simple thought bubble above NPC's head
+    // Method to draw a solid white thought bubble
     drawThoughtBubble(ctx) {
         ctx.beginPath();
         ctx.arc(this.x + 30, this.y - 140, 80, 0, Math.PI * 2, true); // Draw the bubble circle
         ctx.moveTo(this.x + 15, this.y - 60);
         ctx.lineTo(this.x + 5, this.y - 40);  // Small bubble trail
         ctx.lineTo(this.x + 15, this.y - 20);
+        ctx.fillStyle = 'white';  // Set fill to white
+        ctx.fill();
         ctx.stroke();
         ctx.closePath();
     }
@@ -113,6 +115,36 @@ async function generateAIDialogue(context) {
     }
 }
 
+async function generateDynamicHint(userGuess, correctAnswer) {
+    try {
+        const response = await fetch('https://api.openai.com/v1/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer YOUR_OPENAI_API_KEY`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: "gpt-4",
+                prompt: `You're an NPC trying to help a player guess the correct answer, which is '${correctAnswer}'. The player guessed '${userGuess}'. Provide a hint to help guide the player in the right direction.`,
+                max_tokens: 50,
+                n: 1,
+                stop: null,
+                temperature: 0.7,
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].text.trim();
+    } catch (error) {
+        console.error("Error generating dynamic hint:", error);
+        return "Sorry, I'm having trouble thinking of a hint.";
+    }
+}
+
 class Game {
     constructor(canvasId) {
         console.log('Game constructor called');
@@ -121,45 +153,62 @@ class Game {
         this.canvas.width = 800;
         this.canvas.height = 400;
 
-        this.player = new Player(0, 250, this.canvas.width);
-        this.currentNPC = null;  // Only one NPC at a time
-        this.dialogueManager = new DialogueManager();
-        this.questStage = 0;
-        this.guessCount = 0;  // Track the number of guesses
-        this.maxGuesses = 7;  // Max guesses per NPC
-        this.lettersCollected = [];  // Letters rewarded upon correct guess
-        this.finalPuzzleWord = 'PUZZLE';  // For demonstration purposes
-        this.background = new Image();
-        this.background.src = 'background.png';
+        this.showTitleScreen();
+    }
 
-        this.playerSprite = new Image();
-        this.playerSprite.src = 'player_sprite.png';
+    showTitleScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
-        this.npcSprite = new Image();
-        this.npcSprite.src = 'npc_sprite_0.png';  // Load a single NPC sprite
+        const startButton = document.createElement('button');
+        startButton.textContent = 'START GAME';
+        startButton.style.position = 'absolute';
+        startButton.style.left = '50%';
+        startButton.style.top = '60%';
+        startButton.style.transform = 'translateX(-50%)';
+        document.body.appendChild(startButton);
 
-        this.loadNewNPC();
-
-        // Create scrambled letter input for solving the puzzle
-        this.puzzleInput = document.createElement('input');
-        this.puzzleInput.type = 'text';
-        this.puzzleInput.placeholder = 'Guess the final puzzle word!';
-        this.puzzleInput.style.position = 'absolute';
-        this.puzzleInput.style.bottom = '10px';
-        this.puzzleInput.style.left = '50%';
-        this.puzzleInput.style.transform = 'translateX(-50%)';
-        document.body.appendChild(this.puzzleInput);
-
-        // Button for submitting the final guess
-        this.submitButton = document.createElement('button');
-        this.submitButton.textContent = 'Submit Guess';
-        this.submitButton.style.position = 'absolute';
-        this.submitButton.style.bottom = '10px';
-        this.submitButton.style.left = 'calc(50% + 150px)';
-        this.submitButton.addEventListener('click', () => {
-            this.handleFinalPuzzleGuess(this.puzzleInput.value);
+        startButton.addEventListener('click', () => {
+            startButton.remove();
+            this.showInstructionScreen();
         });
-        document.body.appendChild(this.submitButton);
+    }
+
+    showInstructionScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
+        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking', 50, 150);
+        this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
+
+        const continueButton = document.createElement('button');
+        continueButton.textContent = 'CONTINUE';
+        continueButton.style.position = 'absolute';
+        continueButton.style.left = '50%';
+        continueButton.style.top = '60%';
+        continueButton.style.transform = 'translateX(-50%)';
+        document.body.appendChild(continueButton);
+
+        continueButton.addEventListener('click', () => {
+            continueButton.remove();
+            this.startGame();
+        });
+    }
+
+    startGame() {
+        this.canvas.style.display = 'block';
+        this.player = new Player(0, 250, this.canvas.width);
+        this.currentNPC = null;
+        this.questStage = 0;
+        this.guessCount = 0;
+        this.lettersCollected = [];
+        this.loadNewNPC();
+        this.start();
     }
 
     async loadNewNPC() {
@@ -232,7 +281,7 @@ class Game {
         }
     }
 
-    handleGuess(userGuess) {
+    async handleGuess(userGuess) {
         this.guessCount++;
         const similarity = this.calculateStringSimilarity(userGuess, this.currentNPC.correctAnswer);
 
@@ -249,19 +298,22 @@ class Game {
             
             this.startNextLevel();
         } else {
-            const hint = this.getHintBasedOnGuess(similarity);
+            // Generate a dynamic hint using the OpenAI API
+            const hint = await generateDynamicHint(userGuess, this.currentNPC.correctAnswer);
             alert(`Incorrect guess. Hint: ${hint}`);
         }
     }
 
-    getHintBasedOnGuess(similarity) {
-        if (similarity > 0.7) {
-            return "You're really close!";
-        } else if (similarity > 0.4) {
-            return "You're getting warmer.";
-        } else {
-            return "Think in a different direction!";
-        }
+    getRandomLetter() {
+        // Get a random letter from the final puzzle word for demo purposes
+        const availableLetters = this.finalPuzzleWord.split("").filter(letter => !this.lettersCollected.includes(letter));
+        return availableLetters[Math.floor(Math.random() * availableLetters.length)];
+    }
+
+    async startNextLevel() {
+        this.questStage++;
+        await this.loadNewNPC();  // Load new NPC
+        this.guessCount = 0;  // Reset guess counter for the new NPC
     }
 
     calculateStringSimilarity(a, b) {
@@ -305,18 +357,6 @@ class Game {
         } else {
             alert("That's not correct. Keep collecting letters!");
         }
-    }
-
-    getRandomLetter() {
-        // Get a random letter from the final puzzle word for demo purposes
-        const availableLetters = this.finalPuzzleWord.split("").filter(letter => !this.lettersCollected.includes(letter));
-        return availableLetters[Math.floor(Math.random() * availableLetters.length)];
-    }
-
-    async startNextLevel() {
-        this.questStage++;
-        await this.loadNewNPC();  // Load new NPC
-        this.guessCount = 0;  // Reset guess counter for the new NPC
     }
 
     start() {
