@@ -38,7 +38,7 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 300; // Increased size
+        this.bubbleSize = 300;
     }
 
     draw(ctx, sprite) {
@@ -49,10 +49,10 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = this.bubbleSize * 1.5;
-        const bubbleHeight = this.bubbleSize * 1.2;
-        const bubbleX = this.x + this.width + 20;
-        const bubbleY = this.y - bubbleHeight / 2;
+        const bubbleWidth = this.bubbleSize * 2;
+        const bubbleHeight = this.bubbleSize * 1.5;
+        const bubbleX = this.x + this.width + 50;
+        const bubbleY = this.y - bubbleHeight / 2 + this.height / 2;
 
         // Main bubble
         ctx.fillStyle = 'white';
@@ -64,9 +64,9 @@ class NPC extends Character {
         ctx.stroke();
 
         // Connecting bubbles
-        [30, 20, 10].forEach((size, index) => {
+        [20, 15, 10].forEach((size, index) => {
             ctx.beginPath();
-            ctx.arc(this.x + this.width + 10 + index * 15, this.y + this.height / 2 - index * 10, size, 0, Math.PI * 2);
+            ctx.arc(this.x + this.width + 10 + index * 15, this.y + this.height / 2, size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         });
@@ -74,11 +74,11 @@ class NPC extends Character {
         // Draw image inside bubble
         if (this.faceImage) {
             const aspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleWidth * 0.9;
+            let imgWidth = bubbleWidth * 0.8;
             let imgHeight = imgWidth / aspectRatio;
 
-            if (imgHeight > bubbleHeight * 0.9) {
-                imgHeight = bubbleHeight * 0.9;
+            if (imgHeight > bubbleHeight * 0.8) {
+                imgHeight = bubbleHeight * 0.8;
                 imgWidth = imgHeight * aspectRatio;
             }
 
@@ -149,7 +149,7 @@ class Game {
         });
 
         this.hintText = '';
-        this.hintTimer = 0;
+        this.showHint = false;
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
@@ -282,15 +282,12 @@ class Game {
 
         this.displayCollectedLetters();
         this.drawHint();
-
-        if (this.hintTimer > 0) {
-            this.hintTimer--;
-        }
     }
 
     showGuessingUI() {
         this.guessInput.style.display = 'block';
         this.submitButton.style.display = 'block';
+        this.showHint = false;
     }
 
     hideGuessingUI() {
@@ -311,14 +308,33 @@ class Game {
     }
 
     drawHint() {
-        if (this.hintText && this.hintTimer > 0) {
+        if (this.showHint && this.hintText) {
+            const padding = 10;
+            const lineHeight = 25;
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            this.ctx.fillRect(0, this.canvas.height - 60, this.canvas.width, 60);
+            this.ctx.fillRect(0, 0, this.canvas.width, 60);
             this.ctx.fillStyle = 'white';
             this.ctx.font = '16px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(this.hintText, this.canvas.width / 2, this.canvas.height - 30);
-            this.ctx.textAlign = 'left';
+            
+            // Word wrap the hint text
+            const words = this.hintText.split(' ');
+            let line = '';
+            let y = padding + 16;
+            
+            for (let word of words) {
+                const testLine = line + word + ' ';
+                const metrics = this.ctx.measureText(testLine);
+                const testWidth = metrics.width;
+                
+                if (testWidth > this.canvas.width - padding * 2 && line !== '') {
+                    this.ctx.fillText(line, padding, y);
+                    line = word + ' ';
+                    y += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            this.ctx.fillText(line, padding, y);
         }
     }
 
@@ -356,11 +372,11 @@ class Game {
             const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
             this.hintText = `Incorrect. Hint: ${hint}`;
         }
-        this.hintTimer = 180; // Show hint for 3 seconds (60 frames per second)
+        this.showHint = true;
         this.guessInput.value = ''; // Clear input after guess
     }
 
-    getRandomLetter() {
+getRandomLetter() {
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
     }
@@ -399,7 +415,7 @@ class Game {
         } else {
             this.hintText = "Incorrect puzzle guess. Keep collecting letters!";
         }
-        this.hintTimer = 180; // Show message for 3 seconds
+        this.showHint = true;
     }
 
     startGame() {
