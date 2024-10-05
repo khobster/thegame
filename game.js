@@ -444,7 +444,7 @@ class Game {
         if (this.questStage < 5) {
             setTimeout(() => {
                 this.loadNewNPC();
-                this.hintArea.textContent = "Find the next spy
+                this.hintArea.textContent = "Find the next spy!";
             }, 2000);
         } else {
             this.showFinalPuzzle();
