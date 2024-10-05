@@ -179,7 +179,7 @@ class Game {
                 img.src = data.thumbnail.source;
                 img.onload = () => {
                     this.currentNPC.faceImage = img;
-                    this.currentNPC.correctAnswer = data.title.toLowerCase();
+                    this.currentNPC.correctAnswer = data.title.split(" ")[0].toLowerCase(); // Use only one word
                     console.log(`Loaded NPC image for ${this.currentNPC.name}`);
                 };
             } else {
@@ -229,19 +229,17 @@ class Game {
         }
     }
 
+    // Updated to call the Firebase backend for hint generation
     async generateHint(userGuess, correctAnswer) {
         try {
-            const response = await fetch('https://api.openai.com/v1/completions', {
+            const response = await fetch('https://us-central1-your-project-id.cloudfunctions.net/generateHint', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer YOUR_OPENAI_API_KEY`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: "gpt-4",
-                    prompt: `Give a helpful hint based on the player's guess: "${userGuess}". The correct answer is "${correctAnswer}". Make the hint more detailed and specific to guide them.`,
-                    max_tokens: 60,
-                    temperature: 0.7
+                    guess: userGuess,
+                    correctAnswer: correctAnswer
                 })
             });
 
@@ -250,7 +248,7 @@ class Game {
             }
 
             const data = await response.json();
-            return data.choices[0].text.trim();
+            return data.hint;
         } catch (error) {
             console.error("Error generating hint:", error);
             return "Sorry, I'm having trouble thinking of a good hint.";
