@@ -38,7 +38,7 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 300;
+        this.bubbleSize = 200;
     }
 
     draw(ctx, sprite) {
@@ -49,10 +49,10 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = this.bubbleSize * 2;
-        const bubbleHeight = this.bubbleSize * 1.5;
-        const bubbleX = this.x + this.width + 50;
-        const bubbleY = this.y - bubbleHeight / 2 + this.height / 2;
+        const bubbleWidth = this.bubbleSize * 1.5;
+        const bubbleHeight = this.bubbleSize * 1.2;
+        const bubbleX = this.x + this.width + 20;
+        const bubbleY = this.y - bubbleHeight / 2;
 
         // Main bubble
         ctx.fillStyle = 'white';
@@ -64,9 +64,9 @@ class NPC extends Character {
         ctx.stroke();
 
         // Connecting bubbles
-        [20, 15, 10].forEach((size, index) => {
+        [15, 10, 5].forEach((size, index) => {
             ctx.beginPath();
-            ctx.arc(this.x + this.width + 10 + index * 15, this.y + this.height / 2, size, 0, Math.PI * 2);
+            ctx.arc(this.x + this.width + 5 + index * 10, this.y + this.height / 2 - index * 5, size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         });
@@ -116,40 +116,14 @@ class Game {
 
         this.playerNearNPC = false;
 
-        this.guessInput = document.createElement('input');
-        this.guessInput.type = 'text';
-        this.guessInput.style.position = 'absolute';
-        this.guessInput.style.bottom = '10px';
-        this.guessInput.style.left = '10px';
-        this.guessInput.style.width = '200px';
-        this.guessInput.style.display = 'none';
-        document.body.appendChild(this.guessInput);
+        this.hintArea = document.getElementById('hintArea');
+        this.guessInput = document.getElementById('guessInput');
+        this.guessButton = document.getElementById('guessButton');
+        this.lettersCollectedDisplay = document.getElementById('lettersCollected');
+        this.solveButton = document.getElementById('solveButton');
 
-        this.submitButton = document.createElement('button');
-        this.submitButton.textContent = 'Guess';
-        this.submitButton.style.position = 'absolute';
-        this.submitButton.style.bottom = '10px';
-        this.submitButton.style.left = '220px';
-        this.submitButton.style.display = 'none';
-        this.submitButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
-        document.body.appendChild(this.submitButton);
-
-        this.solveButton = document.createElement('button');
-        this.solveButton.textContent = 'SOLVE PUZZLE';
-        this.solveButton.style.position = 'absolute';
-        this.solveButton.style.left = '50%';
-        this.solveButton.style.bottom = '50px';
-        this.solveButton.style.transform = 'translateX(-50%)';
-        this.solveButton.style.display = 'none';
-        document.body.appendChild(this.solveButton);
-
-        this.solveButton.addEventListener('click', () => {
-            const puzzleGuess = prompt("Enter your guess for the final word:");
-            this.handleFinalPuzzleGuess(puzzleGuess);
-        });
-
-        this.hintText = '';
-        this.showHint = false;
+        this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
+        this.solveButton.addEventListener('click', () => this.handleFinalPuzzleGuess(prompt("Enter your guess for the final word:")));
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
@@ -180,27 +154,14 @@ class Game {
         startButton.style.left = '50%';
         startButton.style.top = '60%';
         startButton.style.transform = 'translateX(-50%)';
-        startButton.style.backgroundColor = 'red';
-        startButton.style.color = 'white';
         startButton.style.fontSize = '20px';
-        startButton.style.border = 'none';
         startButton.style.padding = '10px';
-        startButton.style.cursor = 'pointer';
-        startButton.style.animation = 'blink 1s infinite';
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
             startButton.remove();
             this.showInstructionScreen();
         });
-
-        const style = document.createElement('style');
-        style.innerHTML = `
-            @keyframes blink {
-                50% { opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
     }
 
     showInstructionScreen() {
@@ -220,10 +181,7 @@ class Game {
         continueButton.style.left = '50%';
         continueButton.style.top = '60%';
         continueButton.style.transform = 'translateX(-50%)';
-        continueButton.style.backgroundColor = 'blue';
-        continueButton.style.color = 'white';
         continueButton.style.fontSize = '20px';
-        continueButton.style.border = 'none';
         continueButton.style.padding = '10px';
         document.body.appendChild(continueButton);
 
@@ -281,60 +239,23 @@ class Game {
         }
 
         this.displayCollectedLetters();
-        this.drawHint();
     }
 
     showGuessingUI() {
         this.guessInput.style.display = 'block';
-        this.submitButton.style.display = 'block';
-        this.showHint = false;
+        this.guessButton.style.display = 'block';
     }
 
     hideGuessingUI() {
         this.guessInput.style.display = 'none';
-        this.submitButton.style.display = 'none';
+        this.guessButton.style.display = 'none';
+        this.hintArea.textContent = '';
     }
 
     displayCollectedLetters() {
-        if (this.lettersCollected.length > 0) {
-            this.ctx.font = '20px Arial';
-            this.ctx.fillStyle = 'black';
-            this.ctx.fillText(`Letters collected: ${this.scrambledLetters}`, 10, 30);
-        }
-
+        this.lettersCollectedDisplay.textContent = `Letters: ${this.scrambledLetters}`;
         if (this.lettersCollected.length >= 5) {
             this.solveButton.style.display = 'block';
-        }
-    }
-
-    drawHint() {
-        if (this.showHint && this.hintText) {
-            const padding = 10;
-            const lineHeight = 25;
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            this.ctx.fillRect(0, 0, this.canvas.width, 60);
-            this.ctx.fillStyle = 'white';
-            this.ctx.font = '16px Arial';
-            
-            // Word wrap the hint text
-            const words = this.hintText.split(' ');
-            let line = '';
-            let y = padding + 16;
-            
-            for (let word of words) {
-                const testLine = line + word + ' ';
-                const metrics = this.ctx.measureText(testLine);
-                const testWidth = metrics.width;
-                
-                if (testWidth > this.canvas.width - padding * 2 && line !== '') {
-                    this.ctx.fillText(line, padding, y);
-                    line = word + ' ';
-                    y += lineHeight;
-                } else {
-                    line = testLine;
-                }
-            }
-            this.ctx.fillText(line, padding, y);
         }
     }
 
@@ -365,18 +286,17 @@ class Game {
 
     async handleGuess(userGuess) {
         if (userGuess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
-            this.hintText = 'Correct! You guessed the Wikipedia entry.';
+            this.hintArea.textContent = 'Correct! You guessed the Wikipedia entry.';
             this.addLetterToCollection();
             this.startNextLevel();
         } else {
             const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
-            this.hintText = `Incorrect. Hint: ${hint}`;
+            this.hintArea.textContent = `Incorrect. Hint: ${hint}`;
         }
-        this.showHint = true;
         this.guessInput.value = ''; // Clear input after guess
     }
 
-getRandomLetter() {
+    getRandomLetter() {
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
     }
@@ -411,11 +331,10 @@ getRandomLetter() {
 
     async handleFinalPuzzleGuess(puzzleGuess) {
         if (puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
-            this.hintText = "Congratulations! You solved the final puzzle!";
+            this.hintArea.textContent = "Congratulations! You solved the final puzzle!";
         } else {
-            this.hintText = "Incorrect puzzle guess. Keep collecting letters!";
+            this.hintArea.textContent = "Incorrect puzzle guess. Keep collecting letters!";
         }
-        this.showHint = true;
     }
 
     startGame() {
