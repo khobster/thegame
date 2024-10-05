@@ -16,11 +16,12 @@ class Character {
 }
 
 class Player extends Character {
-    constructor(x, y, canvasWidth) {
+    constructor(x, y, canvasWidth, game) {
         super(x, y, 60, 100, 'Player');
         this.speed = 5;
         this.canvasWidth = canvasWidth;
         this.direction = 0; // 0: not moving, -1: left, 1: right
+        this.game = game;
     }
 
     move() {
@@ -31,32 +32,37 @@ class Player extends Character {
         if (this.x < 0) this.x = 0;
         if (this.x > this.canvasWidth - this.width) this.x = this.canvasWidth - this.width;
     }
+
+    draw(ctx) {
+        if (this.game.loadedImages.playerSprite) {
+            ctx.drawImage(this.game.loadedImages.playerSprite, this.frame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+        }
+    }
 }
 
 class NPC extends Character {
-    constructor(x, y, name) {
+    constructor(x, y, name, game) {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.thoughtBubble = new Image();
-        this.thoughtBubble.src = 'thoughtbubble.png';
+        this.game = game;
     }
 
-    draw(ctx, sprite) {
-        super.draw(ctx, sprite);
-        if (this.faceImage && this.thoughtBubble.complete) {
+    draw(ctx) {
+        super.draw(ctx, this.game.loadedImages.npcSprite);
+        if (this.faceImage && this.game.loadedImages.thoughtBubble) {
             this.drawThoughtBubble(ctx);
         }
     }
 
     drawThoughtBubble(ctx) {
         const bubbleWidth = ctx.canvas.width * 0.8;
-        const bubbleHeight = bubbleWidth * (this.thoughtBubble.height / this.thoughtBubble.width);
+        const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
         const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
         const bubbleY = ctx.canvas.height * 0.1;
 
         // Draw thought bubble
-        ctx.drawImage(this.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+        ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
         // Draw Wikipedia image inside bubble
         if (this.faceImage) {
@@ -77,21 +83,31 @@ class Game {
         this.resizeCanvas();
         window.addEventListener('resize', () => this.resizeCanvas());
 
-        this.background = new Image();
-        this.background.src = 'background.png';
+        this.images = {
+            background: 'background.png',
+            playerSprite: 'player_sprite.png',
+            npcSprite: 'npc_sprite_0.png',
+            thoughtBubble: 'thoughtbubble.png'
+        };
 
-        this.playerSprite = new Image();
-        this.playerSprite.src = 'player_sprite.png';
+        this.loadedImages = {};
+        this.imageLoadPromises = [];
 
-        this.npcSprite = new Image();
-        this.npcSprite.src = 'npc_sprite_0.png';
+        for (let [key, src] of Object.entries(this.images)) {
+            const img = new Image();
+            img.src = src;
+            this.loadedImages[key] = img;
+            this.imageLoadPromises.push(new Promise((resolve) => {
+                img.onload = resolve;
+            }));
+        }
 
         this.lettersCollected = [];
         this.scrambledLetters = '';
         this.questStage = 0;
         this.finalPuzzleWord = null;
         this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
+        this.player = new Player(0, this.canvas.height - 150, this.canvas.width, this);
         this.currentNPC = null;
 
         this.playerNearNPC = false;
@@ -106,6 +122,10 @@ class Game {
         this.hideGameElements();
 
         this.addEventListeners();
+
+        Promise.all(this.imageLoadPromises).then(() => {
+            this.showTitleScreen();
+        });
     }
 
     resizeCanvas() {
@@ -232,7 +252,7 @@ class Game {
     async loadNewNPC() {
         const npcX = this.canvas.width / 2 - 30;
         const npcY = this.canvas.height - 150;
-        this.currentNPC = new NPC(npcX, npcY, `NPC ${this.questStage + 1}`);
+        this.currentNPC = new NPC(npcX, npcY, `NPC ${this.questStage + 1}`, this);
         this.remainingGuesses = 7;
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
@@ -253,17 +273,19 @@ class Game {
     }
 
     drawBackground() {
-        this.ctx.drawImage(this.background, 0, 0, this.canvas.width, this.canvas.height);
+        if (this.loadedImages.background) {
+            this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+        }
     }
 
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawBackground();
         if (this.currentNPC) {
-            this.currentNPC.draw(this.ctx, this.npcSprite);
+            this.currentNPC.draw(this.ctx);
         }
         if (this.player) {
-            this.player.draw(this.ctx, this.playerSprite);
+            this.player.draw(this.ctx);
         }
     }
 
@@ -543,7 +565,7 @@ class Game {
     startGame() {
         this.showGameElements();
         this.canvas.style.display = 'block';
-        this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
+        this.player = new Player(0, this.canvas.height - 150, this.canvas.width, this);
         this.questStage = 0;
         this.lettersCollected = [];
         this.scrambledLetters = '';
@@ -556,5 +578,5 @@ class Game {
 
 document.addEventListener('DOMContentLoaded', () => {
     const game = new Game('gameCanvas');
-    game.showTitleScreen();
+    // The game will automatically show the title screen once images are loaded
 });
