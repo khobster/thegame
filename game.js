@@ -38,60 +38,55 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 300; // Increased bubble size
+        this.bubbleSize = 200;
     }
 
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            this.drawFaceImage(ctx);
         }
     }
 
     drawThoughtBubble(ctx) {
-        ctx.beginPath();
-        ctx.moveTo(this.x + this.width / 2, this.y);
-        ctx.bezierCurveTo(
-            this.x - 40, this.y - 60,
-            this.x - 40, this.y - this.bubbleSize + 60,
-            this.x + this.width / 2, this.y - this.bubbleSize
-        );
-        ctx.bezierCurveTo(
-            this.x + this.width + 40, this.y - this.bubbleSize + 60,
-            this.x + this.width + 40, this.y - 60,
-            this.x + this.width / 2, this.y
-        );
+        const bubbleWidth = this.bubbleSize * 1.2;
+        const bubbleHeight = this.bubbleSize;
+        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
+        const bubbleY = this.y - bubbleHeight - 20;
+
+        // Draw main bubble
         ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bubbleX, bubbleY + bubbleHeight);
+        ctx.lineTo(bubbleX - 10, bubbleY + bubbleHeight + 10);
+        ctx.lineTo(bubbleX + 10, bubbleY + bubbleHeight);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        // Small bubbles
-        [20, 10, 5].forEach((size, index) => {
-            ctx.beginPath();
-            ctx.arc(this.x + this.width / 2 - 20 + index * 15, 
-                    this.y + 10 - index * 10, size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        });
-    }
+        ctx.beginPath();
+        ctx.ellipse(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight / 2, bubbleWidth / 2, bubbleHeight / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
 
-    drawFaceImage(ctx) {
-        if (!this.faceImage) return;
+        // Draw image inside bubble
+        if (this.faceImage) {
+            const aspectRatio = this.faceImage.width / this.faceImage.height;
+            let imgWidth = bubbleWidth * 0.9;
+            let imgHeight = imgWidth / aspectRatio;
 
-        const aspectRatio = this.faceImage.width / this.faceImage.height;
-        let imgWidth = this.bubbleSize * 0.8;
-        let imgHeight = imgWidth / aspectRatio;
+            if (imgHeight > bubbleHeight * 0.9) {
+                imgHeight = bubbleHeight * 0.9;
+                imgWidth = imgHeight * aspectRatio;
+            }
 
-        if (imgHeight > this.bubbleSize * 0.8) {
-            imgHeight = this.bubbleSize * 0.8;
-            imgWidth = imgHeight * aspectRatio;
+            const imgX = bubbleX + bubbleWidth / 2 - imgWidth / 2;
+            const imgY = bubbleY + bubbleHeight / 2 - imgHeight / 2;
+
+            ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
-
-        const imgX = this.x + this.width / 2 - imgWidth / 2;
-        const imgY = this.y - this.bubbleSize / 2 - imgHeight / 2;
-
-        ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
     }
 }
 
@@ -99,8 +94,8 @@ class Game {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.canvas.width = 800;
-        this.canvas.height = 400;
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
 
         this.background = new Image();
         this.background.src = 'background.png';
@@ -116,12 +111,30 @@ class Game {
         this.questStage = 0;
         this.finalPuzzleWord = null;
         this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.player = new Player(0, 250, this.canvas.width);
+        this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.currentNPC = null;
 
         this.playerNearNPC = false;
 
-        // Button to guess the final word puzzle
+        this.guessInput = document.createElement('input');
+        this.guessInput.type = 'text';
+        this.guessInput.style.position = 'absolute';
+        this.guessInput.style.bottom = '10px';
+        this.guessInput.style.left = '10px';
+        this.guessInput.style.width = 'calc(100% - 100px)';
+        document.body.appendChild(this.guessInput);
+
+        this.submitButton = document.createElement('button');
+        this.submitButton.textContent = 'Guess';
+        this.submitButton.style.position = 'absolute';
+        this.submitButton.style.bottom = '10px';
+        this.submitButton.style.right = '10px';
+        this.submitButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
+        document.body.appendChild(this.submitButton);
+
+        this.guessInput.style.display = 'none';
+        this.submitButton.style.display = 'none';
+
         this.solveButton = document.createElement('button');
         this.solveButton.textContent = 'SOLVE PUZZLE';
         this.solveButton.style.position = 'absolute';
@@ -138,6 +151,17 @@ class Game {
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+    }
+
+    resizeCanvas() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        if (this.player) {
+            this.player.y = this.canvas.height - 150;
+        }
+        if (this.currentNPC) {
+            this.currentNPC.y = this.canvas.height - 150;
+        }
     }
 
     showTitleScreen() {
@@ -184,7 +208,7 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Use arrow keys to move. Press Enter to interact with NPCs.', 50, 150);
+        this.ctx.fillText('Use arrow keys to move. Approach NPCs to interact.', 50, 150);
         this.ctx.fillText('Guess what the spy on the street is thinking.', 50, 180);
         this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 210);
 
@@ -208,7 +232,7 @@ class Game {
     }
 
     async loadNewNPC() {
-        this.currentNPC = new NPC(300, 250, `NPC ${this.questStage + 1}`);
+        this.currentNPC = new NPC(300, this.canvas.height - 150, `NPC ${this.questStage + 1}`);
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
             const data = await response.json();
@@ -238,26 +262,33 @@ class Game {
         if (this.player) {
             this.player.move();
             this.player.draw(this.ctx, this.playerSprite);
-
-            if (this.currentNPC && Math.abs(this.player.x - this.currentNPC.x) < 50) {
-                this.playerNearNPC = true;
-                this.displayInteractionPrompt();
-            } else {
-                this.playerNearNPC = false;
-            }
         }
 
         if (this.currentNPC) {
             this.currentNPC.draw(this.ctx, this.npcSprite);
         }
 
+        if (this.player && this.currentNPC) {
+            if (Math.abs(this.player.x - this.currentNPC.x) < 50) {
+                this.playerNearNPC = true;
+                this.showGuessingUI();
+            } else {
+                this.playerNearNPC = false;
+                this.hideGuessingUI();
+            }
+        }
+
         this.displayCollectedLetters();
     }
 
-    displayInteractionPrompt() {
-        this.ctx.font = '16px Arial';
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillText('Press Enter to interact', this.player.x, this.player.y - 20);
+    showGuessingUI() {
+        this.guessInput.style.display = 'block';
+        this.submitButton.style.display = 'block';
+    }
+
+    hideGuessingUI() {
+        this.guessInput.style.display = 'none';
+        this.submitButton.style.display = 'none';
     }
 
     displayCollectedLetters() {
@@ -351,7 +382,7 @@ class Game {
 
     startGame() {
         this.canvas.style.display = 'block';
-        this.player = new Player(0, 250, this.canvas.width);
+        this.player = new Player(0, this.canvas.height - 150, this.canvas.width);
         this.questStage = 0;
         this.lettersCollected = [];
         this.scrambledLetters = '';
@@ -372,20 +403,10 @@ class Game {
     handleKeyDown(e) {
         if (e.key === 'ArrowLeft') this.player.direction = -1;
         if (e.key === 'ArrowRight') this.player.direction = 1;
-        if (e.key === 'Enter') this.interactWithNPC();
     }
 
     handleKeyUp(e) {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
-    }
-
-    interactWithNPC() {
-        if (this.playerNearNPC) {
-            const userGuess = prompt('Enter your guess for the Wikipedia entry:');
-            if (userGuess) {
-                this.handleGuess(userGuess);
-            }
-        }
     }
 }
 
