@@ -38,52 +38,62 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 250; // Increased bubble size
+        this.thoughtBubble = new Image();
+        this.thoughtBubble.src = 'thoughtbubble.png';
+        this.bubbleSize = 300; // Increased bubble size
     }
 
     draw(ctx, sprite) {
         super.draw(ctx, sprite);
-        if (this.faceImage) {
+        if (this.faceImage && this.thoughtBubble.complete) {
             this.drawThoughtBubble(ctx);
         }
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleSize = this.bubbleSize;
-        const bubbleX = this.x + this.width / 2 - bubbleSize / 2;
-        const bubbleY = this.y - bubbleSize - 20;
+        const canvasWidth = ctx.canvas.width;
+        const canvasHeight = ctx.canvas.height;
+        const bubbleWidth = Math.min(this.bubbleSize, canvasWidth * 0.8);
+        const bubbleHeight = bubbleWidth * (this.thoughtBubble.height / this.thoughtBubble.width);
+        const bubbleX = (canvasWidth - bubbleWidth) / 2;
+        const bubbleY = canvasHeight / 2 - bubbleHeight / 2 - 50;
 
-        // Main bubble
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(bubbleX + bubbleSize / 2, bubbleY + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Connecting bubbles
-        [20, 15, 10].forEach((size, index) => {
-            ctx.beginPath();
-            ctx.arc(this.x + this.width / 2, this.y - size - index * 15, size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        });
+        // Draw thought bubble
+        ctx.drawImage(this.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
         // Draw image inside bubble
         if (this.faceImage) {
             const aspectRatio = this.faceImage.width / this.faceImage.height;
-            let imgWidth = bubbleSize * 0.8;
+            let imgWidth = bubbleWidth * 0.7;
             let imgHeight = imgWidth / aspectRatio;
 
-            if (imgHeight > bubbleSize * 0.8) {
-                imgHeight = bubbleSize * 0.8;
+            if (imgHeight > bubbleHeight * 0.7) {
+                imgHeight = bubbleHeight * 0.7;
                 imgWidth = imgHeight * aspectRatio;
             }
 
-            const imgX = bubbleX + (bubbleSize - imgWidth) / 2;
-            const imgY = bubbleY + (bubbleSize - imgHeight) / 2;
+            const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
+            const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
 
             ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
+
+        // Draw connecting bubbles
+        const bubbleCenterX = bubbleX + bubbleWidth / 2;
+        const bubbleCenterY = bubbleY + bubbleHeight;
+        const npcHeadX = this.x + this.width / 2;
+        const npcHeadY = this.y;
+
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        [15, 10, 5].forEach((size, index) => {
+            const x = npcHeadX + (bubbleCenterX - npcHeadX) * (index + 1) / 4;
+            const y = npcHeadY + (bubbleCenterY - npcHeadY) * (index + 1) / 4;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
     }
 }
 
@@ -112,6 +122,7 @@ class Game {
         this.currentNPC = null;
 
         this.playerNearNPC = false;
+        this.remainingGuesses = 7;
 
         this.hintArea = document.getElementById('hintArea');
         this.guessInput = document.getElementById('guessInput');
@@ -221,11 +232,11 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         const instructions = [
-            "Use arrow keys or swipe to move.",
-            "Approach NPCs to interact.",
-            "Guess what the spy is thinking.",
+            "Use arrow keys or swipe to walk.",
+            "Approach the spy to interact.",
+            "Guess what he's thinking.",
             "Each correct guess gives you",
-            "a letter for the final puzzle."
+            "a letter for the final word puzzle."
         ];
         
         this.ctx.font = '18px "Archivo Narrow"';
@@ -253,7 +264,10 @@ class Game {
     }
 
     async loadNewNPC() {
-        this.currentNPC = new NPC(300, this.canvas.height - 150, `NPC ${this.questStage + 1}`);
+        const npcX = this.canvas.width / 2 - 30;
+        const npcY = this.canvas.height - 150;
+        this.currentNPC = new NPC(npcX, npcY, `NPC ${this.questStage + 1}`);
+        this.remainingGuesses = 7;
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
             const data = await response.json();
@@ -300,6 +314,7 @@ class Game {
         }
 
         this.displayCollectedLetters();
+        this.displayRemainingGuesses();
     }
 
     showGuessingUI() {
@@ -315,7 +330,11 @@ class Game {
     }
 
     displayCollectedLetters() {
-        this.lettersCollectedDisplay.textContent = this.scrambledLetters;
+        this.lettersCollectedDisplay.textContent = `Letters: ${this.scrambledLetters}`;
+    }
+
+    displayRemainingGuesses() {
+        this.hintArea.textContent = `Remaining guesses: ${this.remainingGuesses}`;
     }
 
     async handleGuess(userGuess) {
@@ -327,8 +346,13 @@ class Game {
         if (this.isCorrectGuess(userGuess, correctAnswer)) {
             this.handleCorrectGuess();
         } else {
-            const hint = await this.generateHint(userGuess, correctAnswer);
-            this.hintArea.textContent = hint;
+            this.remainingGuesses--;
+            if (this.remainingGuesses > 0) {
+                const hint = await this.generateHint(userGuess, correctAnswer);
+                this.hintArea.textContent = `Incorrect. ${hint} Remaining guesses: ${this.remainingGuesses}`;
+            } else {
+                this.gameOver();
+            }
         }
 
         this.guessInput.value = ''; // Clear input after guess
@@ -423,11 +447,38 @@ class Game {
         if (this.questStage < 5) {
             setTimeout(() => {
                 this.loadNewNPC();
-                this.hintArea.textContent = "Find the next NPC!";
+                this.hintArea.textContent = "Find the next spy!";
             }, 2000);
         } else {
             this.showFinalPuzzle();
         }
+    }
+
+    gameOver() {
+        this.hideGameElements();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px "Archivo Narrow"';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Game Over!', this.canvas.width / 2, this.canvas.height / 2 - 20);
+        this.ctx.fillText(`The correct answer was: ${this.currentNPC.correctAnswer}`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+
+        const restartButton = document.createElement('button');
+        restartButton.textContent = 'Play Again';
+        restartButton.style.position = 'absolute';
+        restartButton.style.left = '50%';
+        restartButton.style.top = '70%';
+        restartButton.style.transform = 'translateX(-50%)';
+        restartButton.style.fontSize = '20px';
+        restartButton.style.padding = '10px 20px';
+        document.body.appendChild(restartButton);
+
+        restartButton.addEventListener('click', () => {
+            restartButton.remove();
+            this.resetGame();
+        });
     }
 
     getRandomLetter() {
