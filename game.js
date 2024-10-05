@@ -123,7 +123,10 @@ class Game {
 
         this.addEventListeners();
 
+        this.imagesLoaded = false;
+
         Promise.all(this.imageLoadPromises).then(() => {
+            this.imagesLoaded = true;
             this.showTitleScreen();
         });
     }
@@ -137,7 +140,9 @@ class Game {
         if (this.currentNPC) {
             this.currentNPC.y = this.canvas.height - 150;
         }
-        this.draw();
+        if (this.imagesLoaded) {
+            this.draw();
+        }
     }
 
     addEventListeners() {
@@ -273,12 +278,14 @@ class Game {
     }
 
     drawBackground() {
-        if (this.loadedImages.background) {
+        if (this.imagesLoaded && this.loadedImages.background) {
             this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
         }
     }
 
     draw() {
+        if (!this.imagesLoaded) return;
+
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawBackground();
         if (this.currentNPC) {
