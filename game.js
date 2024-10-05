@@ -38,7 +38,7 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
-        this.bubbleSize = 250; // Increased bubble size
+        this.bubbleSize = 300; // Increased size
     }
 
     draw(ctx, sprite) {
@@ -49,10 +49,10 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = this.bubbleSize * 1.2;
-        const bubbleHeight = this.bubbleSize;
-        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
-        const bubbleY = this.y - bubbleHeight - 40;
+        const bubbleWidth = this.bubbleSize * 1.5;
+        const bubbleHeight = this.bubbleSize * 1.2;
+        const bubbleX = this.x + this.width + 20;
+        const bubbleY = this.y - bubbleHeight / 2;
 
         // Main bubble
         ctx.fillStyle = 'white';
@@ -63,10 +63,10 @@ class NPC extends Character {
         ctx.fill();
         ctx.stroke();
 
-        // Thought bubbles connecting to NPC
-        [25, 15, 8].forEach((size, index) => {
+        // Connecting bubbles
+        [30, 20, 10].forEach((size, index) => {
             ctx.beginPath();
-            ctx.arc(this.x + this.width / 2, this.y - size - index * 15, size, 0, Math.PI * 2);
+            ctx.arc(this.x + this.width + 10 + index * 15, this.y + this.height / 2 - index * 10, size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         });
@@ -121,7 +121,7 @@ class Game {
         this.guessInput.style.position = 'absolute';
         this.guessInput.style.bottom = '10px';
         this.guessInput.style.left = '10px';
-        this.guessInput.style.width = '200px'; // Adjusted width
+        this.guessInput.style.width = '200px';
         this.guessInput.style.display = 'none';
         document.body.appendChild(this.guessInput);
 
@@ -129,7 +129,7 @@ class Game {
         this.submitButton.textContent = 'Guess';
         this.submitButton.style.position = 'absolute';
         this.submitButton.style.bottom = '10px';
-        this.submitButton.style.left = '220px'; // Positioned next to input
+        this.submitButton.style.left = '220px';
         this.submitButton.style.display = 'none';
         this.submitButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
         document.body.appendChild(this.submitButton);
@@ -147,6 +147,9 @@ class Game {
             const puzzleGuess = prompt("Enter your guess for the final word:");
             this.handleFinalPuzzleGuess(puzzleGuess);
         });
+
+        this.hintText = '';
+        this.hintTimer = 0;
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
@@ -278,6 +281,11 @@ class Game {
         }
 
         this.displayCollectedLetters();
+        this.drawHint();
+
+        if (this.hintTimer > 0) {
+            this.hintTimer--;
+        }
     }
 
     showGuessingUI() {
@@ -299,6 +307,18 @@ class Game {
 
         if (this.lettersCollected.length >= 5) {
             this.solveButton.style.display = 'block';
+        }
+    }
+
+    drawHint() {
+        if (this.hintText && this.hintTimer > 0) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(0, this.canvas.height - 60, this.canvas.width, 60);
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '16px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(this.hintText, this.canvas.width / 2, this.canvas.height - 30);
+            this.ctx.textAlign = 'left';
         }
     }
 
@@ -329,13 +349,14 @@ class Game {
 
     async handleGuess(userGuess) {
         if (userGuess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
-            alert('Correct! You guessed the Wikipedia entry.');
+            this.hintText = 'Correct! You guessed the Wikipedia entry.';
             this.addLetterToCollection();
             this.startNextLevel();
         } else {
             const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
-            alert(`Incorrect guess. Hint: ${hint}`);
+            this.hintText = `Incorrect. Hint: ${hint}`;
         }
+        this.hintTimer = 180; // Show hint for 3 seconds (60 frames per second)
         this.guessInput.value = ''; // Clear input after guess
     }
 
@@ -374,10 +395,11 @@ class Game {
 
     async handleFinalPuzzleGuess(puzzleGuess) {
         if (puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
-            alert("Congratulations! You solved the final puzzle!");
+            this.hintText = "Congratulations! You solved the final puzzle!";
         } else {
-            alert("Incorrect puzzle guess. Keep collecting letters!");
+            this.hintText = "Incorrect puzzle guess. Keep collecting letters!";
         }
+        this.hintTimer = 180; // Show message for 3 seconds
     }
 
     startGame() {
