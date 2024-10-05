@@ -45,13 +45,13 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            ctx.drawImage(this.faceImage, this.x + 90, this.y - 180, 220, 220); // Larger image, positioned to the right
+            ctx.drawImage(this.faceImage, this.x + 100, this.y - 200, 250, 250); // Larger image, positioned to the right
         }
     }
 
     drawThoughtBubble(ctx) {
         ctx.beginPath();
-        ctx.arc(this.x + 200, this.y - 60, 130, 0, Math.PI * 2, true); // Bigger, positioned to the right
+        ctx.arc(this.x + 230, this.y - 60, 160, 0, Math.PI * 2, true); // Bigger, positioned to the right
         ctx.moveTo(this.x + 80, this.y - 30);
         ctx.lineTo(this.x + 70, this.y - 10);
         ctx.lineTo(this.x + 80, this.y + 10);
