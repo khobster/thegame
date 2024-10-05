@@ -45,27 +45,27 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            const bubbleSize = 200;  // Adjusted diameter of the thought bubble
+            const bubbleSize = 240;  // Adjusted larger size for the thought bubble
             const imgAspectRatio = this.faceImage.width / this.faceImage.height;
             let imgWidth, imgHeight;
 
             // Ensure the image fits properly in the bubble
             if (imgAspectRatio > 1) {
-                imgWidth = bubbleSize;
-                imgHeight = bubbleSize / imgAspectRatio;
+                imgWidth = bubbleSize * 0.9;  // Adjust to fit within the bubble
+                imgHeight = bubbleSize * 0.9 / imgAspectRatio;
             } else {
-                imgHeight = bubbleSize;
-                imgWidth = bubbleSize * imgAspectRatio;
+                imgHeight = bubbleSize * 0.9;
+                imgWidth = bubbleSize * 0.9 * imgAspectRatio;
             }
 
-            ctx.drawImage(this.faceImage, this.x + 140, this.y - imgHeight - 40, imgWidth, imgHeight); // Positioned inside the thought bubble
+            ctx.drawImage(this.faceImage, this.x + 120, this.y - imgHeight - 60, imgWidth, imgHeight); // Positioned inside the thought bubble
         }
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleSize = 240;  // Size of the thought bubble
+        const bubbleSize = 280;  // Increased size for the thought bubble
         ctx.beginPath();
-        ctx.arc(this.x + 160, this.y - 100, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble
+        ctx.arc(this.x + 160, this.y - 80, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble
         ctx.moveTo(this.x + 60, this.y - 40);
         ctx.lineTo(this.x + 50, this.y - 10);
         ctx.lineTo(this.x + 60, this.y + 10);
@@ -113,6 +113,23 @@ class Game {
         this.solveButton.addEventListener('click', () => {
             const puzzleGuess = prompt("Enter your guess for the final word:");
             this.handleFinalPuzzleGuess(puzzleGuess);
+        });
+
+        // Add event listeners for player movement
+        this.addMovementListeners();
+    }
+
+    addMovementListeners() {
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'ArrowRight') {
+                this.player.isMoving = true;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'ArrowRight') {
+                this.player.isMoving = false;
+            }
         });
     }
 
