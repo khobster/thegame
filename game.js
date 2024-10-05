@@ -164,6 +164,8 @@ class Game {
         this.npcSprite = new Image();
         this.npcSprite.src = 'npc_sprite_0.png';
 
+        this.lettersCollected = []; // Initialize lettersCollected as an empty array
+
         this.background.onload = () => {
             this.playerSprite.onload = () => {
                 this.npcSprite.onload = () => {
@@ -250,7 +252,7 @@ class Game {
         this.currentNPC = null;
         this.questStage = 0;
         this.guessCount = 0;
-        this.lettersCollected = [];
+        this.lettersCollected = []; // Re-initialize lettersCollected as an empty array
         this.loadNewNPC();
         this.start(); // Start the game loop only after initialization
     }
@@ -302,10 +304,12 @@ class Game {
     }
 
     displayScrambledLetters() {
-        const scrambled = this.lettersCollected.sort(() => Math.random() - 0.5).join('');
-        this.ctx.font = '20px Arial';
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillText(`Letters collected (scrambled): ${scrambled}`, 10, 30);
+        if (this.lettersCollected.length > 0) {
+            const scrambled = this.lettersCollected.sort(() => Math.random() - 0.5).join('');
+            this.ctx.font = '20px Arial';
+            this.ctx.fillStyle = 'black';
+            this.ctx.fillText(`Letters collected (scrambled): ${scrambled}`, 10, 30);
+        }
     }
 
     async handleInteraction(x, y) {
