@@ -45,16 +45,27 @@ class NPC extends Character {
         super.draw(ctx, sprite);
         if (this.faceImage) {
             this.drawThoughtBubble(ctx);
-            ctx.drawImage(this.faceImage, this.x + 100, this.y - 200, 250, 250); // Larger image, positioned to the right
+            const bubbleSize = 220;  // Diameter of the thought bubble
+            const imgAspectRatio = this.faceImage.width / this.faceImage.height;
+            let imgWidth = bubbleSize * imgAspectRatio;
+            let imgHeight = bubbleSize;
+
+            if (imgWidth > bubbleSize) {
+                imgWidth = bubbleSize;
+                imgHeight = bubbleSize / imgAspectRatio;
+            }
+
+            ctx.drawImage(this.faceImage, this.x + 140, this.y - imgHeight - 40, imgWidth, imgHeight); // Position the image inside the thought bubble
         }
     }
 
     drawThoughtBubble(ctx) {
+        const bubbleSize = 240;  // Increased size of the thought bubble
         ctx.beginPath();
-        ctx.arc(this.x + 230, this.y - 60, 160, 0, Math.PI * 2, true); // Bigger, positioned to the right
-        ctx.moveTo(this.x + 80, this.y - 30);
-        ctx.lineTo(this.x + 70, this.y - 10);
-        ctx.lineTo(this.x + 80, this.y + 10);
+        ctx.arc(this.x + 160, this.y - 100, bubbleSize / 2, 0, Math.PI * 2, true);  // Bigger bubble
+        ctx.moveTo(this.x + 60, this.y - 40);
+        ctx.lineTo(this.x + 50, this.y - 10);
+        ctx.lineTo(this.x + 60, this.y + 10);
         ctx.fillStyle = 'white';
         ctx.fill();
         ctx.stroke();
@@ -108,7 +119,7 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.font = '30px Arial';
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Spy Street', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
+        this.ctx.fillText('TOMATO MAN VS. SPY', this.canvas.width / 2 - 80, this.canvas.height / 2 - 20);
 
         const startButton = document.createElement('button');
         startButton.textContent = 'START GAME';
@@ -146,7 +157,7 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.fillText('Instructions:', this.canvas.width / 2 - 50, 100);
-        this.ctx.fillText('Guess what the spy on the street (the NPC) is thinking.', 50, 150);
+        this.ctx.fillText('Walk up to the spy and try and guess what he's thinking.', 50, 150);
         this.ctx.fillText('Each correct guess gives you a letter for the final puzzle.', 50, 200);
 
         const continueButton = document.createElement('button');
@@ -204,6 +215,7 @@ class Game {
 
             if (this.currentNPC && Math.abs(this.player.x - this.currentNPC.x) < 50) {
                 this.playerNearNPC = true;
+                this.autoPromptGuess();  // Automatically prompt guess when near NPC
             } else {
                 this.playerNearNPC = false;
             }
@@ -229,7 +241,6 @@ class Game {
         }
     }
 
-    // Updated to call the Firebase backend for hint generation
     async generateHint(userGuess, correctAnswer) {
         try {
             const response = await fetch('https://us-central1-thegame-91290.cloudfunctions.net/generateHint', {
@@ -263,6 +274,13 @@ class Game {
         } else {
             const hint = await this.generateHint(userGuess, this.currentNPC.correctAnswer);
             alert(`Incorrect guess. Hint: ${hint}`);
+        }
+    }
+
+    autoPromptGuess() {
+        if (this.playerNearNPC) {
+            const userGuess = prompt('Enter your guess for the Wikipedia entry:');
+            this.handleGuess(userGuess);
         }
     }
 
@@ -305,28 +323,6 @@ class Game {
             requestAnimationFrame(gameLoop);
         };
         gameLoop();
-
-        this.canvas.addEventListener('click', (event) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            this.handleInteraction(x, y);
-        });
-
-        document.addEventListener('keydown', (event) => {
-            if (event.code === 'ArrowRight') {
-                this.player.isMoving = true;
-            } else if (event.code === 'Enter' && this.playerNearNPC) {
-                const userGuess = prompt('Enter your guess for the Wikipedia entry:');
-                this.handleGuess(userGuess);
-            }
-        });
-
-        document.addEventListener('keyup', (event) => {
-            if (event.code === 'ArrowRight') {
-                this.player.isMoving = false;
-            }
-        });
     }
 
     handleInteraction(x, y) {
