@@ -24,6 +24,7 @@ class DeadDropGame {
 
         this.lettersCollected = [];
         this.remainingGuesses = 7;
+        this.playerDirection = 0; // To track the direction of the player
 
         this.guessInput = document.getElementById('guessInput');
         this.guessButton = document.getElementById('guessButton');
@@ -60,6 +61,21 @@ class DeadDropGame {
         this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
         this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
         this.solveButton.addEventListener('click', () => this.showFinalPuzzleModal());
+    }
+
+    // Handle keyboard events
+    handleKeyDown(e) {
+        if (e.key === 'ArrowLeft') {
+            this.playerDirection = -1; // Move left
+        } else if (e.key === 'ArrowRight') {
+            this.playerDirection = 1; // Move right
+        }
+    }
+
+    handleKeyUp(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            this.playerDirection = 0; // Stop moving
+        }
     }
 
     hideGameElements() {
@@ -114,6 +130,16 @@ class DeadDropGame {
 
     update() {
         // Add logic to update game elements
+        // Example: move player if key is pressed
+        this.movePlayer();
+    }
+
+    movePlayer() {
+        if (this.playerDirection !== 0) {
+            // Logic to move the player
+            // Assuming player object exists, adjust its x-position based on direction
+            this.player.x += this.playerDirection * 5; // Example move step
+        }
     }
 
     draw() {
