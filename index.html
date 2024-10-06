@@ -22,6 +22,39 @@
             height: 100%;
         }
 
+        button {
+            font-family: 'DIN Condensed', sans-serif;
+            font-size: 20px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:active {
+            background-color: #003f7f;
+        }
+
+        #startButtonWrapper, #continueButtonWrapper {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #startButtonWrapper {
+            top: 60%;
+        }
+
+        #continueButtonWrapper {
+            bottom: 20%;
+        }
+
         #gameUI {
             position: absolute;
             bottom: 20px;
@@ -41,7 +74,6 @@
             font-size: 16px;
             border: none;
             border-radius: 5px;
-            width: 200px;
         }
 
         #guessButton {
@@ -89,28 +121,6 @@
             border: none;
             cursor: pointer;
         }
-
-        #startButtonWrapper {
-            position: absolute;
-            left: 50%;
-            top: 60%;
-            transform: translateX(-50%);
-        }
-
-        #startButton {
-            font-family: 'DIN Condensed', sans-serif;
-            font-size: 24px;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #388E3C;
-        }
     </style>
 </head>
 <body>
@@ -121,14 +131,19 @@
         <button id="startButton">START GAME</button>
     </div>
 
+    <!-- Continue Button -->
+    <div id="continueButtonWrapper" style="display: none;">
+        <button id="continueButton">CONTINUE</button>
+    </div>
+
     <!-- Game UI -->
-    <div id="gameUI" style="display: none;">
+    <div id="gameUI">
         <input type="text" id="guessInput" placeholder="Enter your guess">
         <button id="guessButton">Guess</button>
     </div>
 
     <!-- Hint Area -->
-    <div id="hintArea" style="display: none;"></div>
+    <div id="hintArea"></div>
 
     <!-- Letters Collected -->
     <div id="lettersCollected"></div>
