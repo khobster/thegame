@@ -28,9 +28,6 @@ class DeadDropGame {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
-
         this.images = {
             background: 'background.png',
             mailboxSprite: 'mailbox.png'
@@ -38,7 +35,6 @@ class DeadDropGame {
 
         this.loadedImages = {};
         this.imageLoadPromises = [];
-
         for (let [key, src] of Object.entries(this.images)) {
             const img = new Image();
             img.src = src;
@@ -48,13 +44,15 @@ class DeadDropGame {
             }));
         }
 
+        // Set up initial game state
         this.lettersCollected = [];
         this.scrambledLetters = '';
-        this.player = { x: 0, y: this.canvas.height - 150, width: 60, height: 100 };
         this.currentMailbox = null;
+        this.player = { x: 0, y: this.canvas.height - 150, width: 60, height: 100 };
         this.playerNearMailbox = false;
         this.remainingGuesses = 7;
 
+        // UI Elements
         this.guessInput = document.getElementById('guessInput');
         this.guessButton = document.getElementById('guessButton');
         this.lettersCollectedDisplay = document.getElementById('lettersCollected');
@@ -62,21 +60,30 @@ class DeadDropGame {
         this.hintArea = document.getElementById('hintArea');
 
         this.hideGameElements();
-
         this.addEventListeners();
 
-        this.imagesLoaded = false;
-
+        // Wait for all images to load
         Promise.all(this.imageLoadPromises).then(() => {
             this.imagesLoaded = true;
+            this.resizeCanvas(); // Call resizeCanvas after images are loaded
             this.showTitleScreen();
         });
+
+        // Handle window resizing
+        window.addEventListener('resize', () => this.resizeCanvas());
     }
 
     resizeCanvas() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this.player.y = this.canvas.height - 150;
+
+        // Ensure player and mailbox positions are updated only if they exist
+        if (this.player) {
+            this.player.y = this.canvas.height - 150;
+        }
+        if (this.currentMailbox) {
+            this.currentMailbox.y = this.canvas.height - 150;
+        }
         if (this.imagesLoaded) {
             this.draw();
         }
@@ -185,7 +192,14 @@ class DeadDropGame {
     }
 
     update() {
-        this.player.move();
+        if (this.player.direction) {
+            const speed = 5; // Adjust player movement speed
+            this.player.x += this.player.direction * speed;
+
+            // Prevent player from going off the screen
+            if (this.player.x < 0) this.player.x = 0;
+            if (this.player.x + this.player.width > this.canvas.width) this.player.x = this.canvas.width - this.player.width;
+        }
 
         if (this.currentMailbox && Math.abs(this.player.x - this.currentMailbox.x) < 50) {
             this.playerNearMailbox = true;
