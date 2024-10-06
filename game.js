@@ -210,10 +210,14 @@ class Game {
         this.ctx.fillText('Spy Street', this.canvas.width / 2, this.canvas.height / 2 - 20);
 
         const startButton = document.getElementById('startButton');
-        if (startButton) {
-            startButton.style.display = 'block';
+        const startButtonWrapper = document.getElementById('startButtonWrapper');
+        const continueButtonWrapper = document.getElementById('continueButtonWrapper');
+        
+        if (startButton && startButtonWrapper) {
+            startButtonWrapper.style.display = 'block';
             startButton.onclick = () => {
-                document.getElementById('startButtonWrapper').style.display = 'none';
+                startButtonWrapper.style.display = 'none';
+                if (continueButtonWrapper) continueButtonWrapper.style.display = 'none';
                 this.showInstructionScreen();
             };
         }
@@ -240,13 +244,16 @@ class Game {
             this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
         });
 
+        const continueButtonWrapper = document.getElementById('continueButtonWrapper');
         const continueButton = document.getElementById('continueButton');
-        if (continueButton) {
-            continueButton.style.display = 'block';
+        if (continueButtonWrapper && continueButton) {
+            continueButtonWrapper.style.display = 'block';
             continueButton.onclick = () => {
-                continueButton.style.display = 'none';
+                continueButtonWrapper.style.display = 'none';
                 this.startGame();
             };
+        } else {
+            console.error('Continue button or wrapper not found');
         }
     }
 
@@ -359,6 +366,7 @@ class Game {
         }
         
         this.hintArea.textContent = "Find the next spy!";
+        this.remainingGuesses = 7; // Reset guesses for new NPC
     }
 
     endGame() {
