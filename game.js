@@ -56,19 +56,22 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = ctx.canvas.width * 0.5;
-        const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
-        const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
-        const bubbleY = this.y - bubbleHeight - 10; // Positioning above the NPC's head
+    const bubbleWidth = ctx.canvas.width * 0.5;
+    const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
+    const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
+    const bubbleY = this.y - bubbleHeight - 50; // Ensures there's ample space between the NPC and the thought bubble
 
-        ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+    ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
-        if (this.faceImage) {
-            const imgWidth = bubbleWidth * 0.6;
-            const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
-            const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
-            const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
-            ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
+    if (this.faceImage) {
+        // Draw the Wikipedia image within the thought bubble, keeping good spacing
+        const imgPadding = 10;
+        const imgWidth = bubbleWidth - 2 * imgPadding;
+        const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
+        const imgX = bubbleX + imgPadding;
+        const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
+
+        ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
     }
 }
@@ -264,30 +267,52 @@ class Game {
     }
 
     update() {
-        this.player.move();
+    this.player.move();
 
-        if (this.currentNPC && this.player.x > this.currentNPC.x - 50 && this.player.x < this.currentNPC.x + 50) {
-            this.playerNearNPC = true;
-            this.hintArea.textContent = this.currentNPC.hint;
-        } else {
-            this.playerNearNPC = false;
-            this.hintArea.textContent = "Find the next NPC!";
+    if (this.currentNPC && this.player.x > this.currentNPC.x - 50 && this.player.x < this.currentNPC.x + 50) {
+        this.playerNearNPC = true;
+
+        // Display the hint but truncate if it's too long
+        let fullHint = this.currentNPC.hint;
+        let maxLength = 80; // Character limit for the hint text to fit well
+        this.hintArea.textContent = fullHint.length > maxLength ? fullHint.substring(0, maxLength) + '...' : fullHint;
+    } else {
+        this.playerNearNPC = false;
+        this.hintArea.textContent = "Find the next spy!";
         }
     }
 
     draw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        if (this.imagesLoaded) {
-            // Draw background
-            if (this.loadedImages.background) {
-                this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
-            }
+    if (this.imagesLoaded) {
+        // Draw background
+        if (this.loadedImages.background) {
+            this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+        }
 
-            // Draw player and NPCs
-            this.player.draw(this.ctx);
-            if (this.currentNPC) {
-                this.currentNPC.draw(this.ctx);
+        // Draw collected letters and dice icon
+        this.ctx.font = '24px Arial';
+        this.ctx.fillStyle = 'yellow';
+        this.ctx.fillText(`Letters: ${this.lettersCollected.join(' ')}`, 10, 30);
+
+        if (this.loadedImages.dice) {
+            this.ctx.drawImage(this.loadedImages.dice, this.canvas.width - 60, 10, 50, 50);
+        }
+
+        // Draw hint area
+        if (this.playerNearNPC && this.currentNPC) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(10, 50, this.canvas.width - 20, 60);
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '18px Arial';
+            this.ctx.fillText(this.currentNPC.hint, this.canvas.width / 2, 90);
+        }
+
+        // Draw player and NPCs
+        this.player.draw(this.ctx);
+        if (this.currentNPC) {
+            this.currentNPC.draw(this.ctx);
             }
         }
     }
