@@ -2,9 +2,6 @@ class DeadDropGame {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
-
         this.images = {
             background: 'background.png',
             playerSprite: 'player_sprite.png',
@@ -41,17 +38,16 @@ class DeadDropGame {
 
         Promise.all(this.imageLoadPromises).then(() => {
             this.imagesLoaded = true;
+            this.resizeCanvas();
             this.showTitleScreen();
+            window.addEventListener('resize', () => this.resizeCanvas()); // Move resize event listener here
         });
     }
 
     resizeCanvas() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        if (this.player) {
-            this.player.y = this.canvas.height - 150;
-        }
-        if (this.loadedImages.background && this.imagesLoaded) {
+        if (this.imagesLoaded) {
             this.draw(); // Ensure canvas is redrawn after resize
         }
     }
