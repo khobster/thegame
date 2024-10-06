@@ -216,8 +216,8 @@ class Game {
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
-            startButton.remove();
-            this.showInstructionScreen();
+    document.getElementById('startButtonWrapper').remove();
+    this.showInstructionScreen();
         });
     }
 
