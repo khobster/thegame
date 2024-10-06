@@ -41,20 +41,6 @@
             background-color: #003f7f;
         }
 
-        #startButtonWrapper, #continueButtonWrapper {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        #startButtonWrapper {
-            top: 60%;
-        }
-
-        #continueButtonWrapper {
-            bottom: 20%;
-        }
-
         #gameUI {
             position: absolute;
             bottom: 20px;
@@ -107,7 +93,7 @@
             left: 10px;
             font-size: 24px;
             color: yellow;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         #solveButton {
@@ -125,30 +111,14 @@
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-
-    <!-- Start Button -->
-    <div id="startButtonWrapper">
-        <button id="startButton">START GAME</button>
-    </div>
-
-    <!-- Continue Button -->
-    <div id="continueButtonWrapper" style="display: none;">
-        <button id="continueButton">CONTINUE</button>
-    </div>
-
-    <!-- Game UI -->
+    
     <div id="gameUI">
         <input type="text" id="guessInput" placeholder="Enter your guess">
         <button id="guessButton">Guess</button>
     </div>
-
-    <!-- Hint Area -->
+    
     <div id="hintArea"></div>
-
-    <!-- Letters Collected -->
     <div id="lettersCollected"></div>
-
-    <!-- Solve Button -->
     <button id="solveButton"></button>
 
     <script src="game.js"></script>
