@@ -166,6 +166,7 @@ class DeadDropGame {
             this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
         });
 
+        // Ensure the continue button and wrapper exist
         const continueButtonWrapper = document.getElementById('continueButtonWrapper');
         const continueButton = document.getElementById('continueButton');
         if (continueButtonWrapper && continueButton) {
