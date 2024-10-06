@@ -193,16 +193,18 @@ class Game {
     }
 
     showTitleScreen() {
-        this.hideGameElements();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('Spy Street', this.canvas.width / 2, this.canvas.height / 2 - 20);
+    this.hideGameElements();
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = 'black';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.font = '30px Arial';
+    this.ctx.fillStyle = 'white';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Spy Street', this.canvas.width / 2, this.canvas.height / 2 - 20);
 
+    if (!document.getElementById('startButton')) {
         const startButton = document.createElement('button');
+        startButton.id = 'startButton';
         startButton.textContent = 'START GAME';
         startButton.style.position = 'absolute';
         startButton.style.left = '50%';
