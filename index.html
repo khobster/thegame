@@ -41,6 +41,7 @@
             font-size: 16px;
             border: none;
             border-radius: 5px;
+            width: 200px;
         }
 
         #guessButton {
@@ -74,7 +75,7 @@
             left: 10px;
             font-size: 24px;
             color: yellow;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         #solveButton {
@@ -89,23 +90,16 @@
             cursor: pointer;
         }
 
-        #startButtonWrapper, #continueButtonWrapper {
+        #startButtonWrapper {
             position: absolute;
             left: 50%;
+            top: 60%;
             transform: translateX(-50%);
         }
 
-        #startButtonWrapper {
-            top: 60%;
-        }
-
-        #continueButtonWrapper {
-            bottom: 20%;
-        }
-
-        button {
+        #startButton {
             font-family: 'DIN Condensed', sans-serif;
-            font-size: 20px;
+            font-size: 24px;
             padding: 10px 20px;
             background-color: #4CAF50;
             color: white;
@@ -113,26 +107,33 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
+        button:hover {
+            background-color: #388E3C;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-    
+
+    <!-- Start Button -->
     <div id="startButtonWrapper">
         <button id="startButton">START GAME</button>
     </div>
-    
-    <div id="continueButtonWrapper" style="display: none;">
-        <button id="continueButton">CONTINUE</button>
-    </div>
-    
-    <div id="gameUI">
+
+    <!-- Game UI -->
+    <div id="gameUI" style="display: none;">
         <input type="text" id="guessInput" placeholder="Enter your guess">
         <button id="guessButton">Guess</button>
     </div>
-    
-    <div id="hintArea"></div>
+
+    <!-- Hint Area -->
+    <div id="hintArea" style="display: none;"></div>
+
+    <!-- Letters Collected -->
     <div id="lettersCollected"></div>
+
+    <!-- Solve Button -->
     <button id="solveButton"></button>
 
     <script src="game.js"></script>
