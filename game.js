@@ -56,21 +56,18 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = ctx.canvas.width * 0.7; 
+        const bubbleWidth = ctx.canvas.width * 0.5;
         const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
         const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
-        const bubbleY = ctx.canvas.height * 0.05;
+        const bubbleY = this.y - bubbleHeight - 10; // Positioning above the NPC's head
 
-        // Draw thought bubble
         ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
-        // Draw Wikipedia image inside bubble
         if (this.faceImage) {
             const imgWidth = bubbleWidth * 0.6;
             const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
             const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
             const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
-
             ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
     }
@@ -214,7 +211,7 @@ class Game {
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
-            startButton.remove(); // Remove after clicking
+            startButton.remove();
             this.showInstructionScreen();
         });
     }
@@ -227,7 +224,7 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
-
+        
         const instructions = [
             "Use arrow keys or swipe to walk.",
             "Approach the spy to interact.",
@@ -235,351 +232,112 @@ class Game {
             "Each correct guess gives you",
             "a letter for the final word puzzle."
         ];
-
+        
         instructions.forEach((line, index) => {
             this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
         });
 
-        const continueButton = document.createElement('button');
-        continueButton.textContent = 'CONTINUE';
-        continueButton.style.position = 'absolute';
-        continueButton.style.left = '50%';
-        continueButton.style.bottom = '20%';
-        continueButton.style.transform = 'translateX(-50%)';
-        document.body.appendChild(continueButton);
+            const continueButton = document.createElement('button');
+    continueButton.textContent = 'CONTINUE';
+    continueButton.style.position = 'absolute';
+    continueButton.style.left = '50%';
+    continueButton.style.transform = 'translateX(-50%)';
+    continueButton.style.bottom = '20%';
+    document.body.appendChild(continueButton);
 
-        continueButton.addEventListener('click', () => {
-            continueButton.remove();
-            this.startGame();
-        });
+    continueButton.addEventListener('click', () => {
+        continueButton.remove();
+        this.startGame();
+    });
+}
+        startGame() {
+        this.showGameElements();
+        this.gameLoop();
     }
 
-    async loadNewNPC() {
-        const npcX = this.canvas.width / 2 - 30;
-        const npcY = this.canvas.height - 150;
-        this.currentNPC = new NPC(npcX, npcY, `NPC ${this.questStage + 1}`, this);
-        this.remainingGuesses = 7;
-        try {
-            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-            const data = await response.json();
-            if (data.thumbnail && data.thumbnail.source) {
-                const img = new Image();
-                img.crossOrigin = 'Anonymous';
-                img.src = data.thumbnail.source;
-                img.onload = () => {
-                    this.currentNPC.faceImage = img;
-                };
-            }
-            this.currentNPC.correctAnswer = data.title.toLowerCase();
-        } catch (error) {
-            console.error('Error fetching Wikipedia image:', error);
-        }
+    gameLoop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.gameLoop());
     }
 
-    drawBackground() {
-        if (this.imagesLoaded && this.loadedImages.background) {
-            this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+    update() {
+        this.player.move();
+
+        if (this.currentNPC && this.player.x > this.currentNPC.x - 50 && this.player.x < this.currentNPC.x + 50) {
+            this.playerNearNPC = true;
+            this.hintArea.textContent = this.currentNPC.hint;
+        } else {
+            this.playerNearNPC = false;
+            this.hintArea.textContent = "Find the next NPC!";
         }
     }
 
     draw() {
-        if (!this.imagesLoaded) return;
-
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.drawBackground();
-        if (this.currentNPC) {
-            this.currentNPC.draw(this.ctx);
-        }
-        if (this.player) {
+
+        if (this.imagesLoaded) {
+            // Draw background
+            if (this.loadedImages.background) {
+                this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            // Draw player and NPCs
             this.player.draw(this.ctx);
+            if (this.currentNPC) {
+                this.currentNPC.draw(this.ctx);
+            }
         }
     }
 
-    update() {
-        if (this.player) {
-            this.player.move();
-        }
-        this.checkPlayerNearNPC();
-        this.draw();
-        requestAnimationFrame(() => this.update());
-    }
-
-    checkPlayerNearNPC() {
-        if (this.player && this.currentNPC) {
-            if (Math.abs(this.player.x - this.currentNPC.x) < 50) {
-                this.playerNearNPC = true;
-                this.showGuessingUI();
+    handleGuess(guess) {
+        if (this.playerNearNPC && this.currentNPC) {
+            if (guess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
+                this.lettersCollected.push(this.currentNPC.correctAnswer[0].toUpperCase());
+                this.lettersCollectedDisplay.textContent = `Letters: ${this.lettersCollected.join(' ')}`;
+                this.nextNPC();
             } else {
-                this.playerNearNPC = false;
-                this.hideGuessingUI();
-            }
-        }
-    }
-
-    showGuessingUI() {
-        this.guessInput.style.display = 'block';
-        this.guessButton.style.display = 'block';
-        this.hintArea.style.display = 'block';
-    }
-
-    hideGuessingUI() {
-        this.guessInput.style.display = 'none';
-        this.guessButton.style.display = 'none';
-        this.hintArea.style.display = 'none';
-    }
-
-    async handleGuess(userGuess) {
-        if (!this.playerNearNPC) return;
-
-        userGuess = userGuess.toLowerCase().trim();
-        const correctAnswer = this.currentNPC.correctAnswer.toLowerCase();
-
-        if (this.isCorrectGuess(userGuess, correctAnswer)) {
-            this.handleCorrectGuess();
-        } else {
-            this.remainingGuesses--;
-            if (this.remainingGuesses > 0) {
-                const hint = await this.generateHint(userGuess, correctAnswer);
-                this.displayHint(hint);
-            } else {
-                this.gameOver();
-            }
-        }
-
-        this.guessInput.value = ''; 
-    }
-
-    isCorrectGuess(guess, correctAnswer) {
-        if (guess === correctAnswer) return true;
-
-        const guessWords = guess.split(' ');
-        const answerWords = correctAnswer.split(' ');
-
-        for (let guessWord of guessWords) {
-            for (let answerWord of answerWords) {
-                if (answerWord.includes(guessWord) || guessWord.includes(answerWord)) {
-                    return true;
+                this.remainingGuesses--;
+                this.hintArea.textContent = `Wrong! You have ${this.remainingGuesses} guesses left.`;
+                if (this.remainingGuesses <= 0) {
+                    this.endGame();
                 }
             }
         }
-
-        for (let guessWord of guessWords) {
-            for (let answerWord of answerWords) {
-                if (this.levenshteinDistance(guessWord, answerWord) <= 2) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
-    levenshteinDistance(a, b) {
-        const matrix = [];
-
-        for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
-        }
-
-        for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
-        }
-
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i - 1) == a.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1,
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1
-                    );
-                }
-            }
-        }
-
-        return matrix[b.length][a.length];
+    nextNPC() {
+        this.currentNPC = new NPC(
+            Math.random() * (this.canvas.width - 60),
+            this.canvas.height - 150,
+            `Spy ${Math.floor(Math.random() * 100)}`,
+            this
+        );
+        this.hintArea.textContent = "Find the next spy!";
     }
 
-    async generateHint(userGuess, correctAnswer) {
-        try {
-            const response = await fetch('https://us-central1-thegame-91290.cloudfunctions.net/generateHint', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    guess: userGuess,
-                    correctAnswer: correctAnswer
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.hint;
-        } catch (error) {
-            console.error("Error generating hint:", error);
-            return "Sorry, I'm having trouble thinking of a good hint. Try another guess!";
-        }
-    }
-
-    displayHint(hint) {
-        this.hintArea.textContent = `Hint: ${hint}`;
-        this.hintArea.style.display = 'block';
-    }
-
-    handleCorrectGuess() {
-        this.hintArea.textContent = "Correct! You've uncovered a letter.";
-        this.addLetterToCollection();
-        this.questStage++;
-
-        if (this.questStage < 5) {
-            setTimeout(() => {
-                this.loadNewNPC();
-                this.hintArea.textContent = "Decipher the next image!";
-            }, 2000);
-        } else {
-            this.showFinalPuzzle();
-        }
-    }
-
-    gameOver() {
-        this.hideGameElements();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('Game Over!', this.canvas.width / 2, this.canvas.height / 2 - 20);
-        this.ctx.fillText(`The correct answer was: ${this.currentNPC.correctAnswer}`, this.canvas.width / 2, this.canvas.height / 2 + 20);
-
-        const restartButton = document.createElement('button');
-        restartButton.textContent = 'Play Again';
-        restartButton.style.position = 'absolute';
-        restartButton.style.left = '50%';
-        restartButton.style.top = '70%';
-        restartButton.style.transform = 'translateX(-50%)';
-        document.body.appendChild(restartButton);
-
-        restartButton.addEventListener('click', () => {
-            restartButton.remove();
-            this.resetGame();
-        });
-    }
-
-    getRandomLetter() {
-        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        return alphabet.charAt(Math.floor(Math.random() * alphabet.length));
-    }
-
-    addLetterToCollection() {
-        const newLetter = this.getRandomLetter();
-        this.lettersCollected.push(newLetter);
-        this.scrambleLetters();
-    }
-
-    scrambleLetters() {
-        this.scrambledLetters = [...this.lettersCollected]
-            .sort(() => Math.random() - 0.5)
-            .join('');
-        this.lettersCollectedDisplay.textContent = `Letters: ${this.scrambledLetters}`;
+    endGame() {
+        alert("Game Over! You ran out of guesses.");
+        window.location.reload();
     }
 
     async getRandomWord() {
-        try {
-            const response = await fetch('https://random-word-api.herokuapp.com/word');
-            const [word] = await response.json();
-            return word.toUpperCase();
-        } catch (error) {
-            console.error('Error fetching random word:', error);
-            return "PUZZLE"; // Fallback word
-        }
-    }
-
-    showFinalPuzzle() {
-        this.hintArea.textContent = "Unscramble the letters to find the spy's codename!";
-        this.scrambledLetters = this.shuffleArray([...this.lettersCollected]).join('');
-        this.solveButton.style.display = 'block';
-    }
-
-    shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
+        const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
+        const data = await response.json();
+        return data[0];
     }
 
     showFinalPuzzleModal() {
-        const puzzleGuess = prompt("Enter your guess for the final word:");
-        if (puzzleGuess) {
-            this.handleFinalPuzzleGuess(puzzleGuess);
-        }
-    }
-
-    handleFinalPuzzleGuess(puzzleGuess) {
-        if (this.finalPuzzleWord && puzzleGuess.toUpperCase() === this.finalPuzzleWord) {
-            this.showWinScreen();
+        let userAnswer = prompt(`Solve the puzzle! Here's your collected letters: ${this.lettersCollected.join(' ')}`);
+        if (userAnswer.toLowerCase() === this.finalPuzzleWord.toLowerCase()) {
+            alert('Congratulations! You solved the puzzle!');
         } else {
-            this.hintArea.textContent = "Incorrect puzzle guess. Keep trying!";
+            alert('Wrong answer. Better luck next time!');
         }
-    }
-
-    showWinScreen() {
-        this.hideGameElements();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('Congratulations!', this.canvas.width / 2, this.canvas.height / 2 - 20);
-        this.ctx.fillText(`You've uncovered the spy's codename: ${this.finalPuzzleWord}`, this.canvas.width / 2, this.canvas.height / 2 + 20);
-
-        const restartButton = document.createElement('button');
-        restartButton.textContent = 'Play Again';
-        restartButton.style.position = 'absolute';
-        restartButton.style.left = '50%';
-        restartButton.style.top = '70%';
-        restartButton.style.transform = 'translateX(-50%)';
-        document.body.appendChild(restartButton);
-
-        restartButton.addEventListener('click', () => {
-            restartButton.remove();
-            this.resetGame();
-        });
-    }
-
-    resetGame() {
-        this.lettersCollected = [];
-        this.scrambledLetters = '';
-        this.questStage = 0;
-        this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.player.x = 0;
-        this.currentNPC = null;
-        this.showTitleScreen();
-    }
-
-    startGame() {
-        this.showGameElements();
-        this.canvas.style.display = 'block';
-        this.player = new Player(0, this.canvas.height - 150, this.canvas.width, this);
-        this.questStage = 0;
-        this.lettersCollected = [];
-        this.scrambledLetters = '';
-        this.finalPuzzleWord = null;
-        this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.loadNewNPC();
-        this.update();
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize the game
+window.onload = () => {
     const game = new Game('gameCanvas');
-    // The game will automatically show the title screen once images are loaded
-});
+};
