@@ -45,6 +45,7 @@ class NPC extends Character {
         super(x, y, 60, 100, name);
         this.faceImage = null;
         this.correctAnswer = null;
+        this.hint = null;
         this.game = game;
     }
 
@@ -56,22 +57,21 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-    const bubbleWidth = ctx.canvas.width * 0.5;
-    const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
-    const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
-    const bubbleY = this.y - bubbleHeight - 50; // Ensures there's ample space between the NPC and the thought bubble
+        const bubbleWidth = ctx.canvas.width * 0.5;
+        const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
+        const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
+        const bubbleY = this.y - bubbleHeight - 50;
 
-    ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+        ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
-    if (this.faceImage) {
-        // Draw the Wikipedia image within the thought bubble, keeping good spacing
-        const imgPadding = 10;
-        const imgWidth = bubbleWidth - 2 * imgPadding;
-        const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
-        const imgX = bubbleX + imgPadding;
-        const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
+        if (this.faceImage) {
+            const imgPadding = 10;
+            const imgWidth = bubbleWidth - 2 * imgPadding;
+            const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
+            const imgX = bubbleX + imgPadding;
+            const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
 
-        ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
+            ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
     }
 }
@@ -196,68 +196,63 @@ class Game {
     }
 
     showTitleScreen() {
-    this.hideGameElements();
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = 'black';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.font = '30px Arial';
-    this.ctx.fillStyle = 'white';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Spy Street', this.canvas.width / 2, this.canvas.height / 2 - 20);
+        this.hideGameElements();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Spy Street', this.canvas.width / 2, this.canvas.height / 2 - 20);
 
-    if (!document.getElementById('startButton')) {
-        const startButton = document.createElement('button');
-        startButton.id = 'startButton';
-        startButton.textContent = 'START GAME';
-        startButton.style.position = 'absolute';
-        startButton.style.left = '50%';
-        startButton.style.top = '60%';
-        startButton.style.transform = 'translateX(-50%)';
-        document.body.appendChild(startButton);
-
-        startButton.addEventListener('click', () => {
-            document.getElementById('startButtonWrapper').remove();
-            this.showInstructionScreen();
-        });
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.style.display = 'block';
+            startButton.onclick = () => {
+                document.getElementById('startButtonWrapper').style.display = 'none';
+                this.showInstructionScreen();
+            };
+        }
     }
-} // This closing bracket was missing
 
     showInstructionScreen() {
-    this.hideGameElements();
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = 'black';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.font = '20px Arial';
-    this.ctx.fillStyle = 'white';
-    this.ctx.textAlign = 'center';
-    
-    const instructions = [
-        "Use arrow keys or swipe to walk.",
-        "Approach the spy to interact.",
-        "Guess what he's thinking.",
-        "Each correct guess gives you",
-        "a letter for the final word puzzle."
-    ];
-    
-    instructions.forEach((line, index) => {
-        this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
-    });
+        this.hideGameElements();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        
+        const instructions = [
+            "Use arrow keys or swipe to walk.",
+            "Approach the spy to interact.",
+            "Guess what he's thinking.",
+            "Each correct guess gives you",
+            "a letter for the final word puzzle."
+        ];
+        
+        instructions.forEach((line, index) => {
+            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
+        });
 
-    const continueButton = document.createElement('button');
-    continueButton.textContent = 'CONTINUE';
-    continueButton.style.position = 'absolute';
-    continueButton.style.left = '50%';
-    continueButton.style.bottom = '20%';
-    continueButton.style.transform = 'translateX(-50%)';
-    document.body.appendChild(continueButton);
+        const continueButton = document.createElement('button');
+        continueButton.textContent = 'CONTINUE';
+        continueButton.style.position = 'absolute';
+        continueButton.style.left = '50%';
+        continueButton.style.bottom = '20%';
+        continueButton.style.transform = 'translateX(-50%)';
+        document.body.appendChild(continueButton);
 
-    continueButton.addEventListener('click', () => {
-        continueButton.remove();
-        this.startGame();
-    });
-}
-        startGame() {
+        continueButton.addEventListener('click', () => {
+            continueButton.remove();
+            this.startGame();
+        });
+    }
+
+    async startGame() {
         this.showGameElements();
+        await this.nextNPC();  // Create the first NPC
         this.gameLoop();
     }
 
@@ -268,62 +263,62 @@ class Game {
     }
 
     update() {
-    this.player.move();
+        this.player.move();
 
-    if (this.currentNPC && this.player.x > this.currentNPC.x - 50 && this.player.x < this.currentNPC.x + 50) {
-        this.playerNearNPC = true;
+        if (this.currentNPC && this.player.x > this.currentNPC.x - 50 && this.player.x < this.currentNPC.x + 50) {
+            this.playerNearNPC = true;
 
-        // Display the hint but truncate if it's too long
-        let fullHint = this.currentNPC.hint;
-        let maxLength = 80; // Character limit for the hint text to fit well
-        this.hintArea.textContent = fullHint.length > maxLength ? fullHint.substring(0, maxLength) + '...' : fullHint;
-    } else {
-        this.playerNearNPC = false;
-        this.hintArea.textContent = "Find the next spy!";
+            // Display the hint but truncate if it's too long
+            let fullHint = this.currentNPC.hint || "No hint available";
+            let maxLength = 80; // Character limit for the hint text to fit well
+            this.hintArea.textContent = fullHint.length > maxLength ? fullHint.substring(0, maxLength) + '...' : fullHint;
+        } else {
+            this.playerNearNPC = false;
+            this.hintArea.textContent = "Find the next spy!";
         }
     }
 
     draw() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (this.imagesLoaded) {
-        // Draw background
-        if (this.loadedImages.background) {
-            this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
-        }
+        if (this.imagesLoaded) {
+            // Draw background
+            if (this.loadedImages.background) {
+                this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+            }
 
-        // Draw collected letters and dice icon
-        this.ctx.font = '24px Arial';
-        this.ctx.fillStyle = 'yellow';
-        this.ctx.fillText(`Letters: ${this.lettersCollected.join(' ')}`, 10, 30);
+            // Draw collected letters and dice icon
+            this.ctx.font = '24px Arial';
+            this.ctx.fillStyle = 'yellow';
+            this.ctx.fillText(`Letters: ${this.lettersCollected.join(' ')}`, 10, 30);
 
-        if (this.loadedImages.dice) {
-            this.ctx.drawImage(this.loadedImages.dice, this.canvas.width - 60, 10, 50, 50);
-        }
+            if (this.loadedImages.dice) {
+                this.ctx.drawImage(this.loadedImages.dice, this.canvas.width - 60, 10, 50, 50);
+            }
 
-        // Draw hint area
-        if (this.playerNearNPC && this.currentNPC) {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            this.ctx.fillRect(10, 50, this.canvas.width - 20, 60);
-            this.ctx.fillStyle = 'white';
-            this.ctx.font = '18px Arial';
-            this.ctx.fillText(this.currentNPC.hint, this.canvas.width / 2, 90);
-        }
+            // Draw hint area
+            if (this.playerNearNPC && this.currentNPC) {
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                this.ctx.fillRect(10, 50, this.canvas.width - 20, 60);
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = '18px Arial';
+                this.ctx.fillText(this.hintArea.textContent, this.canvas.width / 2, 90);
+            }
 
-        // Draw player and NPCs
-        this.player.draw(this.ctx);
-        if (this.currentNPC) {
-            this.currentNPC.draw(this.ctx);
+            // Draw player and NPCs
+            this.player.draw(this.ctx);
+            if (this.currentNPC) {
+                this.currentNPC.draw(this.ctx);
             }
         }
     }
 
-    handleGuess(guess) {
+    async handleGuess(guess) {
         if (this.playerNearNPC && this.currentNPC) {
             if (guess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
                 this.lettersCollected.push(this.currentNPC.correctAnswer[0].toUpperCase());
                 this.lettersCollectedDisplay.textContent = `Letters: ${this.lettersCollected.join(' ')}`;
-                this.nextNPC();
+                await this.nextNPC();
             } else {
                 this.remainingGuesses--;
                 this.hintArea.textContent = `Wrong! You have ${this.remainingGuesses} guesses left.`;
@@ -334,13 +329,31 @@ class Game {
         }
     }
 
-    nextNPC() {
-        this.currentNPC = new NPC(
-            Math.random() * (this.canvas.width - 60),
-            this.canvas.height - 150,
-            `Spy ${Math.floor(Math.random() * 100)}`,
-            this
-        );
+    async nextNPC() {
+        const x = Math.random() * (this.canvas.width - 60);
+        const y = this.canvas.height - 150;
+        this.currentNPC = new NPC(x, y, `Spy ${Math.floor(Math.random() * 100)}`, this);
+        
+        try {
+            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+            const data = await response.json();
+            this.currentNPC.correctAnswer = data.title.toLowerCase();
+            this.currentNPC.hint = data.extract;
+            
+            if (data.thumbnail && data.thumbnail.source) {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.src = data.thumbnail.source;
+                img.onload = () => {
+                    this.currentNPC.faceImage = img;
+                };
+            }
+        } catch (error) {
+            console.error('Error fetching Wikipedia data:', error);
+            this.currentNPC.correctAnswer = 'error';
+            this.currentNPC.hint = 'Error loading hint';
+        }
+        
         this.hintArea.textContent = "Find the next spy!";
     }
 
@@ -350,18 +363,35 @@ class Game {
     }
 
     async getRandomWord() {
-        const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
-        const data = await response.json();
-        return data[0];
+        try {
+            const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
+            const data = await response.json();
+            return data[0].toUpperCase();
+        } catch (error) {
+            console.error('Error fetching random word:', error);
+            return "PUZZLE"; // Fallback word
+        }
     }
 
     showFinalPuzzleModal() {
         let userAnswer = prompt(`Solve the puzzle! Here's your collected letters: ${this.lettersCollected.join(' ')}`);
-        if (userAnswer.toLowerCase() === this.finalPuzzleWord.toLowerCase()) {
+        if (userAnswer && userAnswer.toLowerCase() === this.finalPuzzleWord.toLowerCase()) {
             alert('Congratulations! You solved the puzzle!');
+            this.resetGame();
         } else {
-            alert('Wrong answer. Better luck next time!');
+            alert('Wrong answer. Keep trying!');
         }
+    }
+
+    resetGame() {
+        this.lettersCollected = [];
+        this.scrambledLetters = '';
+        this.questStage = 0;
+        this.remainingGuesses = 7;
+        this.getRandomWord().then(word => this.finalPuzzleWord = word);
+        this.player.x = 0;
+        this.currentNPC = null;
+        this.showTitleScreen();
     }
 }
 
