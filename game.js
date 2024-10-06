@@ -216,10 +216,11 @@ class Game {
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
-    document.getElementById('startButtonWrapper').remove();
-    this.showInstructionScreen();
+            document.getElementById('startButtonWrapper').remove();
+            this.showInstructionScreen();
         });
     }
+} // This closing bracket was missing
 
     showInstructionScreen() {
     this.hideGameElements();
