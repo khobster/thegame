@@ -18,14 +18,16 @@ class Character {
 class Player extends Character {
     constructor(x, y, canvasWidth, game) {
         super(x, y, 60, 100, 'Player');
-        this.speed = 5;
+        this.speed = 3; // Reduced speed
         this.canvasWidth = canvasWidth;
         this.direction = 0; // 0: not moving, -1: left, 1: right
         this.game = game;
     }
 
     move() {
-        this.x += this.speed * this.direction;
+        // Slow down movement on mobile
+        const mobileSpeedFactor = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 0.5 : 1;
+        this.x += this.speed * this.direction * mobileSpeedFactor;
         if (this.direction !== 0) {
             this.frame = (this.frame + 1) % 2;
         }
@@ -57,13 +59,15 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = ctx.canvas.width * 0.5;
+        const bubbleWidth = ctx.canvas.width * 0.4;
         const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
-        const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
-        const bubbleY = this.y - bubbleHeight - 50;
+        const bubbleX = this.x + this.width / 2 - bubbleWidth / 2;
+        const bubbleY = this.y - bubbleHeight - 20;
 
+        // Draw thought bubble
         ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
+        // Draw Wikipedia image inside bubble
         if (this.faceImage) {
             const imgPadding = 10;
             const imgWidth = bubbleWidth - 2 * imgPadding;
@@ -132,8 +136,8 @@ class Game {
     }
 
     resizeCanvas() {
-        this.canvas.width = window.innerWidth * 0.9;
-        this.canvas.height = window.innerHeight * 0.9;
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
         if (this.player) {
             this.player.y = this.canvas.height - 150;
         }
@@ -216,90 +220,93 @@ class Game {
     }
 
     showInstructionScreen() {
-    this.hideGameElements();
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = 'black';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.font = '20px Arial';
-    this.ctx.fillStyle = 'white';
-    this.ctx.textAlign = 'center';
-    
-    const instructions = [
-        "Use arrow keys or swipe to walk.",
-        "Approach the spy to interact.",
-        "Guess what he's thinking.",
-        "Each correct guess gives you",
-        "a letter for the final word puzzle."
-    ];
-    
-    instructions.forEach((line, index) => {
-        this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
-    });
+        this.hideGameElements();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        
+        const instructions = [
+            "Use arrow keys or swipe to walk.",
+            "Approach the spy to interact.",
+            "Guess what he's thinking.",
+            "Each correct guess gives you",
+            "a letter for the final word puzzle."
+        ];
+        
+        instructions.forEach((line, index) => {
+            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
+        });
 
-    const continueButtonWrapper = document.getElementById('continueButtonWrapper');
-    const continueButton = document.getElementById('continueButton');
-    continueButtonWrapper.style.display = 'block';
+        const continueButton = document.getElementById('continueButton');
+        if (continueButton) {
+            continueButton.style.display = 'block';
+            continueButton.onclick = () => {
+                continueButton.style.display = 'none';
+                this.startGame();
+            };
+        }
+    }
 
-    continueButton.onclick = () => {
-        continueButtonWrapper.style.display = 'none';
-        this.startGame();
-    };
-}
+    async startGame() {
+        this.showGameElements();
+        await this.nextNPC();
+        this.gameLoop();
+    }
 
-async startGame() {
-    this.showGameElements();
-    await this.nextNPC();  // Create the first NPC
-    this.gameLoop();
-}
-
-gameLoop() {
-    this.update();
-    this.draw();
-    requestAnimationFrame(() => this.gameLoop());
-}
+    gameLoop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.gameLoop());
+    }
 
     update() {
         this.player.move();
 
-        if (this.currentNPC && this.player.x > this.currentNPC.x - 50 && this.player.x < this.currentNPC.x + 50) {
+        if (this.currentNPC && Math.abs(this.player.x - this.currentNPC.x) < 50) {
             this.playerNearNPC = true;
-
-            // Display the hint but truncate if it's too long
-            let fullHint = this.currentNPC.hint || "No hint available";
-            let maxLength = 80; // Character limit for the hint text to fit well
-            this.hintArea.textContent = fullHint.length > maxLength ? fullHint.substring(0, maxLength) + '...' : fullHint;
         } else {
             this.playerNearNPC = false;
-            this.hintArea.textContent = "Find the next spy!";
         }
+
+        this.updateUI();
+    }
+
+    updateUI() {
+        if (this.playerNearNPC && this.currentNPC) {
+            this.hintArea.style.display = 'block';
+            this.hintArea.textContent = this.currentNPC.hint || "No hint available";
+        } else {
+            this.hintArea.style.display = 'none';
+        }
+
+        this.lettersCollectedDisplay.textContent = `Letters: ${this.lettersCollected.join(' ')}`;
     }
 
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.imagesLoaded) {
-            // Draw background
-            if (this.loadedImages.background) {
-                this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+            // Draw background (maintain aspect ratio)
+            const bgAspectRatio = this.loadedImages.background.width / this.loadedImages.background.height;
+            const canvasAspectRatio = this.canvas.width / this.canvas.height;
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (canvasAspectRatio > bgAspectRatio) {
+                drawWidth = this.canvas.width;
+                drawHeight = drawWidth / bgAspectRatio;
+                drawX = 0;
+                drawY = (this.canvas.height - drawHeight) / 2;
+            } else {
+                drawHeight = this.canvas.height;
+                drawWidth = drawHeight * bgAspectRatio;
+                drawX = (this.canvas.width - drawWidth) / 2;
+                drawY = 0;
             }
 
-            // Draw collected letters and dice icon
-            this.ctx.font = '24px Arial';
-            this.ctx.fillStyle = 'yellow';
-            this.ctx.fillText(`Letters: ${this.lettersCollected.join(' ')}`, 10, 30);
-
-            if (this.loadedImages.dice) {
-                this.ctx.drawImage(this.loadedImages.dice, this.canvas.width - 60, 10, 50, 50);
-            }
-
-            // Draw hint area
-            if (this.playerNearNPC && this.currentNPC) {
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                this.ctx.fillRect(10, 50, this.canvas.width - 20, 60);
-                this.ctx.fillStyle = 'white';
-                this.ctx.font = '18px Arial';
-                this.ctx.fillText(this.hintArea.textContent, this.canvas.width / 2, 90);
-            }
+            this.ctx.drawImage(this.loadedImages.background, drawX, drawY, drawWidth, drawHeight);
 
             // Draw player and NPCs
             this.player.draw(this.ctx);
@@ -313,7 +320,7 @@ gameLoop() {
         if (this.playerNearNPC && this.currentNPC) {
             if (guess.toLowerCase() === this.currentNPC.correctAnswer.toLowerCase()) {
                 this.lettersCollected.push(this.currentNPC.correctAnswer[0].toUpperCase());
-                this.lettersCollectedDisplay.textContent = `Letters: ${this.lettersCollected.join(' ')}`;
+                this.updateUI();
                 await this.nextNPC();
             } else {
                 this.remainingGuesses--;
@@ -323,6 +330,7 @@ gameLoop() {
                 }
             }
         }
+        this.guessInput.value = ''; // Clear input after guess
     }
 
     async nextNPC() {
@@ -333,7 +341,7 @@ gameLoop() {
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
             const data = await response.json();
-            this.currentNPC.correctAnswer = data.title.toLowerCase();
+            this.currentNPC.correctAnswer = data.title;
             this.currentNPC.hint = data.extract;
             
             if (data.thumbnail && data.thumbnail.source) {
@@ -355,22 +363,22 @@ gameLoop() {
 
     endGame() {
         alert("Game Over! You ran out of guesses.");
-        window.location.reload();
+        this.resetGame();
     }
 
     async getRandomWord() {
-    try {
-        const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
-        const data = await response.json();
-        return data[0].toUpperCase();
-    } catch (error) {
-        console.error('Error fetching random word:', error);
-        return "PUZZLE"; // Fallback word
+        try {
+            const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
+            const data = await response.json();
+            return data[0].toUpperCase();
+        } catch (error) {
+            console.error('Error fetching random word:', error);
+            return "PUZZLE"; // Fallback word
+        }
     }
-}
 
     showFinalPuzzleModal() {
-        let userAnswer = prompt(`Solve the puzzle! Here's your collected letters: ${this.lettersCollected.join(' ')}`);
+        let userAnswer = prompt(`Solve the puzzle! Here are your collected letters: ${this.lettersCollected.join(' ')}\nFinal word: ${this.scrambledLetters}`);
         if (userAnswer && userAnswer.toLowerCase() === this.finalPuzzleWord.toLowerCase()) {
             alert('Congratulations! You solved the puzzle!');
             this.resetGame();
@@ -388,6 +396,13 @@ gameLoop() {
         this.player.x = 0;
         this.currentNPC = null;
         this.showTitleScreen();
+    }
+
+    scrambleLetters() {
+        this.scrambledLetters = [...this.lettersCollected]
+            .sort(() => Math.random() - 0.5)
+            .join('');
+        this.updateUI();
     }
 }
 
