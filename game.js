@@ -1,3 +1,29 @@
+class Mailbox {
+    constructor(x, y, game) {
+        this.x = x;
+        this.y = y;
+        this.width = 60;
+        this.height = 100;
+        this.game = game;
+        this.faceImage = null;
+        this.correctAnswer = null;
+        this.hint = null;
+    }
+
+    draw(ctx) {
+        if (this.game.loadedImages.mailboxSprite) {
+            ctx.drawImage(this.game.loadedImages.mailboxSprite, this.x, this.y, this.width, this.height);
+            if (this.faceImage) {
+                const imgWidth = ctx.canvas.width * 0.4;
+                const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
+                const imgX = (ctx.canvas.width - imgWidth) / 2;
+                const imgY = this.y - imgHeight - 10;
+                ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
+            }
+        }
+    }
+}
+
 class DeadDropGame {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -7,8 +33,7 @@ class DeadDropGame {
 
         this.images = {
             background: 'background.png',
-            mailbox: 'mailbox.png',
-            dice: 'dice.png'
+            mailboxSprite: 'mailbox.png'
         };
 
         this.loadedImages = {};
@@ -25,8 +50,9 @@ class DeadDropGame {
 
         this.lettersCollected = [];
         this.scrambledLetters = '';
-        this.finalPuzzleWord = null;
-        this.getRandomWord().then(word => this.finalPuzzleWord = word);
+        this.player = { x: 0, y: this.canvas.height - 150, width: 60, height: 100 };
+        this.currentMailbox = null;
+        this.playerNearMailbox = false;
         this.remainingGuesses = 7;
 
         this.guessInput = document.getElementById('guessInput');
@@ -36,27 +62,6 @@ class DeadDropGame {
         this.hintArea = document.getElementById('hintArea');
 
         this.hideGameElements();
-
-        // Initialize the player object to avoid undefined errors
-        this.player = {
-            x: 0,
-            direction: 0,
-            move: () => {
-                // Add basic move logic
-                const speed = 5;
-                this.player.x += this.player.direction * speed;
-                if (this.player.x < 0) this.player.x = 0;
-                if (this.player.x > this.canvas.width - 50) this.player.x = this.canvas.width - 50;
-            },
-            draw: (ctx) => {
-                ctx.fillStyle = 'orange'; // Temporary player
-                ctx.fillRect(this.player.x, this.canvas.height - 50, 50, 50); // Temporary player box
-            }
-        };
-
-        // Binding the event listeners to the correct `this` context
-        this.handleKeyDown = this.handleKeyDown.bind(this);
-        this.handleKeyUp = this.handleKeyUp.bind(this);
 
         this.addEventListeners();
 
@@ -71,14 +76,15 @@ class DeadDropGame {
     resizeCanvas() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
+        this.player.y = this.canvas.height - 150;
         if (this.imagesLoaded) {
             this.draw();
         }
     }
 
     addEventListeners() {
-        document.addEventListener('keydown', this.handleKeyDown);
-        document.addEventListener('keyup', this.handleKeyUp);
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
         this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
         this.solveButton.addEventListener('click', () => this.showFinalPuzzleModal());
     }
@@ -121,12 +127,12 @@ class DeadDropGame {
         const startButton = document.getElementById('startButton');
         const startButtonWrapper = document.getElementById('startButtonWrapper');
         const continueButtonWrapper = document.getElementById('continueButtonWrapper');
-
+        
         if (startButton && startButtonWrapper) {
             startButtonWrapper.style.display = 'block';
             startButton.onclick = () => {
                 startButtonWrapper.style.display = 'none';
-                if (continueButtonWrapper) continueButtonWrapper.style.display = 'block'; // Show continue button now
+                if (continueButtonWrapper) continueButtonWrapper.style.display = 'none';
                 this.showInstructionScreen();
             };
         }
@@ -140,15 +146,15 @@ class DeadDropGame {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
-
+        
         const instructions = [
             "Use arrow keys or swipe to walk.",
             "Approach the mailbox to interact.",
-            "Guess what the Wikipedia image is.",
-            "Each correct guess gives you",
-            "a letter for the final word puzzle."
+            "Guess the Wikipedia image to collect letters.",
+            "Each correct guess gives you a letter",
+            "for the final word puzzle."
         ];
-
+        
         instructions.forEach((line, index) => {
             this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
         });
@@ -161,6 +167,8 @@ class DeadDropGame {
                 continueButtonWrapper.style.display = 'none';
                 this.startGame();
             };
+        } else {
+            console.error('Continue button or wrapper not found');
         }
     }
 
@@ -177,11 +185,9 @@ class DeadDropGame {
     }
 
     update() {
-        if (this.player) {
-            this.player.move();
-        }
+        this.player.move();
 
-        if (this.mailbox && Math.abs(this.player.x - this.mailbox.x) < 50) {
+        if (this.currentMailbox && Math.abs(this.player.x - this.currentMailbox.x) < 50) {
             this.playerNearMailbox = true;
         } else {
             this.playerNearMailbox = false;
@@ -191,9 +197,9 @@ class DeadDropGame {
     }
 
     updateUI() {
-        if (this.playerNearMailbox && this.mailbox) {
+        if (this.playerNearMailbox && this.currentMailbox) {
             this.hintArea.style.display = 'block';
-            this.hintArea.textContent = this.mailbox.hint || "No hint available";
+            this.hintArea.textContent = this.currentMailbox.hint || "No hint available";
         } else {
             this.hintArea.style.display = 'none';
         }
@@ -205,35 +211,39 @@ class DeadDropGame {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.imagesLoaded) {
-            // Draw background
-            const bgImage = this.loadedImages.background;
-            this.ctx.drawImage(bgImage, 0, 0, this.canvas.width, this.canvas.height);
+            // Draw background (maintain aspect ratio)
+            const bgAspectRatio = this.loadedImages.background.width / this.loadedImages.background.height;
+            const canvasAspectRatio = this.canvas.width / this.canvas.height;
+            let drawWidth, drawHeight, drawX, drawY;
 
-            // Draw mailbox
-            if (this.mailbox) {
-                const mailboxImage = this.loadedImages.mailbox;
-                this.ctx.drawImage(mailboxImage, this.mailbox.x, this.mailbox.y, this.mailbox.width, this.mailbox.height);
+            if (canvasAspectRatio > bgAspectRatio) {
+                drawWidth = this.canvas.width;
+                drawHeight = drawWidth / bgAspectRatio;
+                drawX = 0;
+                drawY = (this.canvas.height - drawHeight) / 2;
+            } else {
+                drawHeight = this.canvas.height;
+                drawWidth = drawHeight * bgAspectRatio;
+                drawX = (this.canvas.width - drawWidth) / 2;
+                drawY = 0;
             }
 
-            // Draw Wikipedia image above mailbox
-            if (this.mailbox && this.mailbox.faceImage) {
-                const imgWidth = this.canvas.width * 0.5;
-                const imgHeight = imgWidth * (this.mailbox.faceImage.height / this.mailbox.faceImage.width);
-                const imgX = (this.canvas.width - imgWidth) / 2;
-                const imgY = this.mailbox.y - imgHeight - 10;
+            this.ctx.drawImage(this.loadedImages.background, drawX, drawY, drawWidth, drawHeight);
 
-                this.ctx.drawImage(this.mailbox.faceImage, imgX, imgY, imgWidth, imgHeight);
+            // Draw player and mailbox
+            this.ctx.fillStyle = 'blue';
+            this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height); // Draw player
+
+            if (this.currentMailbox) {
+                this.currentMailbox.draw(this.ctx);
             }
-
-            // Draw player
-            this.player.draw(this.ctx);
         }
     }
 
     async handleGuess(guess) {
-        if (this.playerNearMailbox && this.mailbox) {
-            if (guess.toLowerCase() === this.mailbox.correctAnswer.toLowerCase()) {
-                this.lettersCollected.push(this.mailbox.correctAnswer[0].toUpperCase());
+        if (this.playerNearMailbox && this.currentMailbox) {
+            if (guess.toLowerCase() === this.currentMailbox.correctAnswer.toLowerCase()) {
+                this.lettersCollected.push(this.currentMailbox.correctAnswer[0].toUpperCase());
                 this.updateUI();
                 await this.nextMailbox();
             } else {
@@ -250,28 +260,28 @@ class DeadDropGame {
     async nextMailbox() {
         const x = Math.random() * (this.canvas.width - 60);
         const y = this.canvas.height - 150;
-        this.mailbox = { x, y, width: 60, height: 100 };
-
+        this.currentMailbox = new Mailbox(x, y, this);
+        
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
             const data = await response.json();
-            this.mailbox.correctAnswer = data.title;
-            this.mailbox.hint = data.extract;
-
+            this.currentMailbox.correctAnswer = data.title;
+            this.currentMailbox.hint = data.extract;
+            
             if (data.thumbnail && data.thumbnail.source) {
                 const img = new Image();
                 img.crossOrigin = 'Anonymous';
                 img.src = data.thumbnail.source;
                 img.onload = () => {
-                    this.mailbox.faceImage = img;
+                    this.currentMailbox.faceImage = img;
                 };
             }
         } catch (error) {
             console.error('Error fetching Wikipedia data:', error);
-            this.mailbox.correctAnswer = 'error';
-            this.mailbox.hint = 'Error loading hint';
+            this.currentMailbox.correctAnswer = 'error';
+            this.currentMailbox.hint = 'Error loading hint';
         }
-
+        
         this.hintArea.textContent = "Guess the next secret in the drop";
         this.remainingGuesses = 7; // Reset guesses for new mailbox
     }
@@ -308,7 +318,7 @@ class DeadDropGame {
         this.remainingGuesses = 7;
         this.getRandomWord().then(word => this.finalPuzzleWord = word);
         this.player.x = 0;
-        this.mailbox = null;
+        this.currentMailbox = null;
         this.showTitleScreen();
     }
 
