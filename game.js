@@ -56,21 +56,25 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleWidth = ctx.canvas.width * 0.6; // Adjusted size for mobile
-        const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
-        const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
-        const bubbleY = ctx.canvas.height * 0.05; // Moved up slightly for better visibility
+        const bubbleX = this.x + this.width / 2 - 10;  // Single small white circle above NPC
+        const bubbleY = this.y - 20;
+        const bubbleRadius = 10;
 
-        // Draw thought bubble
-        ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+        // Draw a small white circle above the NPC
+        ctx.beginPath();
+        ctx.arc(bubbleX, bubbleY, bubbleRadius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = "white";
+        ctx.fill();
 
-        // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const imgWidth = bubbleWidth * 0.5; // Reduced image size to fit better
+            const imgWidth = 100; // Frame the Wikipedia image in a white box
             const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
-            const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
-            const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
+            const imgX = bubbleX - imgWidth / 2;
+            const imgY = bubbleY - imgHeight - 10;
 
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 5;
+            ctx.strokeRect(imgX, imgY, imgWidth, imgHeight);
             ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
     }
@@ -214,7 +218,7 @@ class Game {
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
-            startButton.remove();
+            startButton.remove();  // Ensure start button is removed after clicking
             this.showInstructionScreen();
         });
     }
@@ -444,7 +448,7 @@ class Game {
         if (this.questStage < 5) {
             setTimeout(() => {
                 this.loadNewNPC();
-                this.hintArea.textContent = "Find the next spy!";
+                this.hintArea.textContent = "Decipher the next image!";
             }, 2000);
         } else {
             this.showFinalPuzzle();
