@@ -359,15 +359,15 @@ class Game {
     }
 
     async getRandomWord() {
-        try {
-            const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
-            const data = await response.json();
-            return data[0].toUpperCase();
-        } catch (error) {
-            console.error('Error fetching random word:', error);
-            return "PUZZLE"; // Fallback word
-        }
+    try {
+        const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
+        const data = await response.json();
+        return data[0].toUpperCase();
+    } catch (error) {
+        console.error('Error fetching random word:', error);
+        return "PUZZLE"; // Fallback word
     }
+}
 
     showFinalPuzzleModal() {
         let userAnswer = prompt(`Solve the puzzle! Here's your collected letters: ${this.lettersCollected.join(' ')}`);
