@@ -56,25 +56,21 @@ class NPC extends Character {
     }
 
     drawThoughtBubble(ctx) {
-        const bubbleX = this.x + this.width / 2 - 10;  // Single small white circle above NPC
-        const bubbleY = this.y - 20;
-        const bubbleRadius = 10;
+        const bubbleWidth = ctx.canvas.width * 0.7; 
+        const bubbleHeight = bubbleWidth * (this.game.loadedImages.thoughtBubble.height / this.game.loadedImages.thoughtBubble.width);
+        const bubbleX = (ctx.canvas.width - bubbleWidth) / 2;
+        const bubbleY = ctx.canvas.height * 0.05;
 
-        // Draw a small white circle above the NPC
-        ctx.beginPath();
-        ctx.arc(bubbleX, bubbleY, bubbleRadius, 0, 2 * Math.PI, false);
-        ctx.fillStyle = "white";
-        ctx.fill();
+        // Draw thought bubble
+        ctx.drawImage(this.game.loadedImages.thoughtBubble, bubbleX, bubbleY, bubbleWidth, bubbleHeight);
 
+        // Draw Wikipedia image inside bubble
         if (this.faceImage) {
-            const imgWidth = 100; // Frame the Wikipedia image in a white box
+            const imgWidth = bubbleWidth * 0.6;
             const imgHeight = imgWidth * (this.faceImage.height / this.faceImage.width);
-            const imgX = bubbleX - imgWidth / 2;
-            const imgY = bubbleY - imgHeight - 10;
+            const imgX = bubbleX + (bubbleWidth - imgWidth) / 2;
+            const imgY = bubbleY + (bubbleHeight - imgHeight) / 2;
 
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 5;
-            ctx.strokeRect(imgX, imgY, imgWidth, imgHeight);
             ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
         }
     }
@@ -136,7 +132,7 @@ class Game {
     }
 
     resizeCanvas() {
-        this.canvas.width = window.innerWidth * 0.9; // Added padding for better mobile experience
+        this.canvas.width = window.innerWidth * 0.9;
         this.canvas.height = window.innerHeight * 0.9;
         if (this.player) {
             this.player.y = this.canvas.height - 150;
@@ -218,7 +214,7 @@ class Game {
         document.body.appendChild(startButton);
 
         startButton.addEventListener('click', () => {
-            startButton.remove();  // Ensure start button is removed after clicking
+            startButton.remove(); // Remove after clicking
             this.showInstructionScreen();
         });
     }
@@ -231,7 +227,7 @@ class Game {
         this.ctx.font = '20px Arial';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
-        
+
         const instructions = [
             "Use arrow keys or swipe to walk.",
             "Approach the spy to interact.",
@@ -239,7 +235,7 @@ class Game {
             "Each correct guess gives you",
             "a letter for the final word puzzle."
         ];
-        
+
         instructions.forEach((line, index) => {
             this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
         });
@@ -275,7 +271,6 @@ class Game {
                 };
             }
             this.currentNPC.correctAnswer = data.title.toLowerCase();
-            console.log(`Loaded NPC image for ${this.currentNPC.name}. Answer: ${this.currentNPC.correctAnswer}`);
         } catch (error) {
             console.error('Error fetching Wikipedia image:', error);
         }
@@ -351,14 +346,12 @@ class Game {
             }
         }
 
-        this.guessInput.value = ''; // Clear input after guess
+        this.guessInput.value = ''; 
     }
 
     isCorrectGuess(guess, correctAnswer) {
-        // Exact match
         if (guess === correctAnswer) return true;
 
-        // Partial match
         const guessWords = guess.split(' ');
         const answerWords = correctAnswer.split(' ');
 
@@ -370,7 +363,6 @@ class Game {
             }
         }
 
-        // Levenshtein distance for similar words
         for (let guessWord of guessWords) {
             for (let answerWord of answerWords) {
                 if (this.levenshteinDistance(guessWord, answerWord) <= 2) {
