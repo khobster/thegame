@@ -222,32 +222,32 @@ class Game {
     }
 
     showInstructionScreen() {
-        this.hideGameElements();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '20px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.textAlign = 'center';
-        
-        const instructions = [
-            "Use arrow keys or swipe to walk.",
-            "Approach the spy to interact.",
-            "Guess what he's thinking.",
-            "Each correct guess gives you",
-            "a letter for the final word puzzle."
-        ];
-        
-        instructions.forEach((line, index) => {
-            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
-        });
+    this.hideGameElements();
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = 'black';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.font = '20px Arial';
+    this.ctx.fillStyle = 'white';
+    this.ctx.textAlign = 'center';
+    
+    const instructions = [
+        "Use arrow keys or swipe to walk.",
+        "Approach the spy to interact.",
+        "Guess what he's thinking.",
+        "Each correct guess gives you",
+        "a letter for the final word puzzle."
+    ];
+    
+    instructions.forEach((line, index) => {
+        this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 3 + index * 30);
+    });
 
-            const continueButton = document.createElement('button');
+    const continueButton = document.createElement('button');
     continueButton.textContent = 'CONTINUE';
     continueButton.style.position = 'absolute';
     continueButton.style.left = '50%';
-    continueButton.style.transform = 'translateX(-50%)';
     continueButton.style.bottom = '20%';
+    continueButton.style.transform = 'translateX(-50%)';
     document.body.appendChild(continueButton);
 
     continueButton.addEventListener('click', () => {
