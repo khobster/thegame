@@ -22,30 +22,11 @@
             height: 100%;
         }
 
-        button {
-            font-family: 'DIN Condensed', sans-serif;
-            font-size: 20px;
-            padding: 10px 20px;
-            border-radius: 5px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            transition: background-color 0.3s ease;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        button:active {
-            background-color: #003f7f;
-        }
-
         #gameUI {
             position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -60,6 +41,7 @@
             font-size: 16px;
             border: none;
             border-radius: 5px;
+            width: 70%;
         }
 
         #guessButton {
@@ -80,7 +62,7 @@
             text-align: center;
             font-size: 18px;
             color: white;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.8);
             padding: 10px;
             border-radius: 5px;
             max-width: 80%;
@@ -107,16 +89,49 @@
             border: none;
             cursor: pointer;
         }
+
+        #startButtonWrapper, #continueButtonWrapper {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #startButtonWrapper {
+            top: 60%;
+        }
+
+        #continueButtonWrapper {
+            bottom: 20%;
+        }
+
+        button {
+            font-family: 'DIN Condensed', sans-serif;
+            font-size: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-    
+
+    <div id="startButtonWrapper">
+        <button id="startButton">START GAME</button>
+    </div>
+
+    <div id="continueButtonWrapper" style="display: none;">
+        <button id="continueButton">CONTINUE</button>
+    </div>
+
     <div id="gameUI">
         <input type="text" id="guessInput" placeholder="Enter your guess">
         <button id="guessButton">Guess</button>
     </div>
-    
+
     <div id="hintArea"></div>
     <div id="lettersCollected"></div>
     <button id="solveButton"></button>
