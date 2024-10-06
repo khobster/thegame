@@ -243,20 +243,20 @@ class Game {
     continueButton.onclick = () => {
         continueButtonWrapper.style.display = 'none';
         this.startGame();
-        });
-    }
+    };
+}
 
-    async startGame() {
-        this.showGameElements();
-        await this.nextNPC();  // Create the first NPC
-        this.gameLoop();
-    }
+async startGame() {
+    this.showGameElements();
+    await this.nextNPC();  // Create the first NPC
+    this.gameLoop();
+}
 
-    gameLoop() {
-        this.update();
-        this.draw();
-        requestAnimationFrame(() => this.gameLoop());
-    }
+gameLoop() {
+    this.update();
+    this.draw();
+    requestAnimationFrame(() => this.gameLoop());
+}
 
     update() {
         this.player.move();
