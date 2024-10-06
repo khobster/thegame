@@ -37,6 +37,23 @@ class DeadDropGame {
 
         this.hideGameElements();
 
+        // Initialize the player object to avoid undefined errors
+        this.player = {
+            x: 0,
+            direction: 0,
+            move: () => {
+                // Add basic move logic
+                const speed = 5;
+                this.player.x += this.player.direction * speed;
+                if (this.player.x < 0) this.player.x = 0;
+                if (this.player.x > this.canvas.width - 50) this.player.x = this.canvas.width - 50;
+            },
+            draw: (ctx) => {
+                ctx.fillStyle = 'orange'; // Temporary player
+                ctx.fillRect(this.player.x, this.canvas.height - 50, 50, 50); // Temporary player box
+            }
+        };
+
         // Binding the event listeners to the correct `this` context
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleKeyUp = this.handleKeyUp.bind(this);
@@ -109,7 +126,7 @@ class DeadDropGame {
             startButtonWrapper.style.display = 'block';
             startButton.onclick = () => {
                 startButtonWrapper.style.display = 'none';
-                if (continueButtonWrapper) continueButtonWrapper.style.display = 'none';
+                if (continueButtonWrapper) continueButtonWrapper.style.display = 'block'; // Show continue button now
                 this.showInstructionScreen();
             };
         }
@@ -231,12 +248,9 @@ class DeadDropGame {
     }
 
     async nextMailbox() {
-        this.mailbox = {
-            x: this.canvas.width / 2 - 30,
-            y: this.canvas.height - 150,
-            width: 60,
-            height: 100
-        };
+        const x = Math.random() * (this.canvas.width - 60);
+        const y = this.canvas.height - 150;
+        this.mailbox = { x, y, width: 60, height: 100 };
 
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
@@ -258,7 +272,7 @@ class DeadDropGame {
             this.mailbox.hint = 'Error loading hint';
         }
 
-        this.hintArea.textContent = "Approach the mailbox to see the next clue!";
+        this.hintArea.textContent = "Guess the next secret in the drop";
         this.remainingGuesses = 7; // Reset guesses for new mailbox
     }
 
