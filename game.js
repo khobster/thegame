@@ -93,7 +93,7 @@ class DeadDropGame {
 
         Promise.all(this.imageLoadPromises).then(() => {
             this.imagesLoaded = true;
-            this.showTitleScreen();
+            this.showTitleScreen(); // Now calls the showTitleScreen function.
         });
     }
 
@@ -137,6 +137,29 @@ class DeadDropGame {
         this.hintArea.style.display = 'block';
     }
 
+    showTitleScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Dead Drop', this.canvas.width / 2, this.canvas.height / 2 - 20);
+
+        const startButton = document.createElement('button');
+        startButton.textContent = 'START GAME';
+        startButton.style.position = 'absolute';
+        startButton.style.left = '50%';
+        startButton.style.top = '60%';
+        startButton.style.transform = 'translateX(-50%)';
+        document.body.appendChild(startButton);
+
+        startButton.addEventListener('click', () => {
+            startButton.remove();
+            this.startGame();
+        });
+    }
+
     async handleGuess(userGuess) {
         if (!this.playerNearMailbox) return;
 
@@ -159,7 +182,6 @@ class DeadDropGame {
     }
 
     isCorrectGuess(guess, correctAnswer) {
-        // Exact match or partial match
         return guess === correctAnswer || correctAnswer.includes(guess);
     }
 
@@ -244,49 +266,21 @@ class DeadDropGame {
         try {
             const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
             const data = await response.json();
-            this.currentMailbox.correctAnswer = data.title;
             const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.src = data.thumbnail ? data.thumbnail.source : '';
-            this.currentMailbox.faceImage = img;
+            img.src = data.thumbnail.source;
+            img.onload = () => {
+                this.currentMailbox.faceImage = img;
+            };
+            this.currentMailbox.correctAnswer = data.title.toLowerCase();
         } catch (error) {
             console.error('Error fetching Wikipedia data:', error);
-            this.currentMailbox.correctAnswer = 'error';
         }
     }
 
     gameLoop() {
-        this.update();
+        this.player.move();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
-    }
-
-    update() {
-        this.player.move();
-        this.checkPlayerNearMailbox();
-    }
-
-    checkPlayerNearMailbox() {
-        if (this.player && this.currentMailbox) {
-            if (Math.abs(this.player.x - this.currentMailbox.x) < 50) {
-                this.playerNearMailbox = true;
-                this.guessInput.style.display = 'block';
-            } else {
-                this.playerNearMailbox = false;
-                this.guessInput.style.display = 'none';
-            }
-        }
-    }
-
-    endGame() {
-        alert("Game Over! You ran out of guesses.");
-        this.resetGame();
-    }
-
-    resetGame() {
-        this.lettersCollected = [];
-        this.getRandomWord().then(word => this.finalPuzzleWord = word);
-        this.startGame();
     }
 }
 
