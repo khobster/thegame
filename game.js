@@ -8,17 +8,47 @@ class Player {
         this.direction = 0; // 0: not moving, -1: left, 1: right
         this.canvasWidth = canvasWidth;
         this.game = game;
+        this.frameIndex = 0;
+        this.tickCount = 0;
+        this.ticksPerFrame = 5;
     }
 
     move() {
         this.x += this.speed * this.direction;
         if (this.x < 0) this.x = 0;
         if (this.x > this.canvasWidth - this.width) this.x = this.canvasWidth - this.width;
+
+        // Update animation frame
+        if (this.direction !== 0) {
+            this.tickCount++;
+            if (this.tickCount > this.ticksPerFrame) {
+                this.tickCount = 0;
+                this.frameIndex = (this.frameIndex + 1) % 2;
+            }
+        } else {
+            this.frameIndex = 0;
+        }
     }
 
     draw(ctx) {
         if (this.game.loadedImages.playerSprite) {
-            ctx.drawImage(this.game.loadedImages.playerSprite, this.x, this.y, this.width, this.height);
+            const frameWidth = this.game.loadedImages.playerSprite.width / 2;
+            ctx.save();
+            if (this.direction < 0) {
+                ctx.scale(-1, 1);
+                ctx.drawImage(
+                    this.game.loadedImages.playerSprite,
+                    this.frameIndex * frameWidth, 0, frameWidth, this.game.loadedImages.playerSprite.height,
+                    -this.x - this.width, this.y, this.width, this.height
+                );
+            } else {
+                ctx.drawImage(
+                    this.game.loadedImages.playerSprite,
+                    this.frameIndex * frameWidth, 0, frameWidth, this.game.loadedImages.playerSprite.height,
+                    this.x, this.y, this.width, this.height
+                );
+            }
+            ctx.restore();
         }
     }
 }
@@ -75,7 +105,10 @@ class DeadDropGame {
 
         this.lettersCollected = [];
         this.finalPuzzleWord = null;
-        this.getRandomWord().then(word => this.finalPuzzleWord = word);
+        this.getRandomWord().then(word => {
+            this.finalPuzzleWord = word;
+            console.log("Final puzzle word:", this.finalPuzzleWord); // For debugging
+        });
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width, this);
         this.currentMailbox = null;
 
@@ -89,7 +122,6 @@ class DeadDropGame {
 
         this.hideGameElements();
         this.addEventListeners();
-        this.addTouchControls();
         this.imagesLoaded = false;
 
         Promise.all(this.imageLoadPromises).then(() => {
@@ -116,29 +148,11 @@ class DeadDropGame {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
         this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
-    }
-
-    addTouchControls() {
-        const leftButton = document.createElement('button');
-        leftButton.textContent = '←';
-        leftButton.style.position = 'absolute';
-        leftButton.style.left = '10px';
-        leftButton.style.bottom = '10px';
-        leftButton.style.fontSize = '24px';
-        document.body.appendChild(leftButton);
-
-        const rightButton = document.createElement('button');
-        rightButton.textContent = '→';
-        rightButton.style.position = 'absolute';
-        rightButton.style.left = '70px';
-        rightButton.style.bottom = '10px';
-        rightButton.style.fontSize = '24px';
-        document.body.appendChild(rightButton);
-
-        leftButton.addEventListener('touchstart', () => this.player.direction = -1);
-        leftButton.addEventListener('touchend', () => this.player.direction = 0);
-        rightButton.addEventListener('touchstart', () => this.player.direction = 1);
-        rightButton.addEventListener('touchend', () => this.player.direction = 0);
+        
+        // Touch controls
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
     }
 
     handleKeyDown(e) {
@@ -150,12 +164,28 @@ class DeadDropGame {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.player.direction = 0;
     }
 
+    handleTouchStart(e) {
+        this.touchStartX = e.touches[0].clientX;
+    }
+
+    handleTouchMove(e) {
+        const touchX = e.touches[0].clientX;
+        const diff = touchX - this.touchStartX;
+        this.player.direction = Math.sign(diff);
+    }
+
+    handleTouchEnd() {
+        this.player.direction = 0;
+    }
+
     hideGameElements() {
         this.guessInput.style.display = 'none';
         this.guessButton.style.display = 'none';
         this.lettersCollectedDisplay.style.display = 'none';
         this.hintArea.style.display = 'none';
-        document.getElementById('solveButton').style.display = 'none';
+        if (document.getElementById('solveButton')) {
+            document.getElementById('solveButton').style.display = 'none';
+        }
     }
 
     showGameElements() {
@@ -163,7 +193,9 @@ class DeadDropGame {
         this.guessButton.style.display = 'block';
         this.lettersCollectedDisplay.style.display = 'block';
         this.hintArea.style.display = 'block';
-        document.getElementById('solveButton').style.display = 'block';
+        if (document.getElementById('solveButton')) {
+            document.getElementById('solveButton').style.display = 'block';
+        }
     }
 
     showTitleScreen() {
@@ -197,7 +229,7 @@ class DeadDropGame {
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
         this.ctx.fillText('Instructions:', this.canvas.width / 2, this.canvas.height / 3);
-        this.ctx.fillText('1. Move the player with arrow keys', this.canvas.width / 2, this.canvas.height / 3 + 40);
+        this.ctx.fillText('1. Move the player with arrow keys or touch', this.canvas.width / 2, this.canvas.height / 3 + 40);
         this.ctx.fillText('2. Approach a mailbox to start guessing', this.canvas.width / 2, this.canvas.height / 3 + 80);
         this.ctx.fillText('3. Guess the Wikipedia article title', this.canvas.width / 2, this.canvas.height / 3 + 120);
 
@@ -285,9 +317,26 @@ class DeadDropGame {
 
     async getRandomWord() {
         try {
-            const response = await fetch('https://random-word-api.herokuapp.com/word?number=1');
+            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const data = await response.json();
-            return data[0].toUpperCase();
+            
+            // Split the title into words and filter out short words and parenthetical content
+            const words = data.title.split(/\s+/).filter(word => 
+                word.length > 3 && !word.includes('(') && !word.includes(')')
+            );
+            
+            // If no suitable words, recursively try again
+            if (words.length === 0) {
+                return this.getRandomWord();
+            }
+            
+            // Select a random word from the filtered list
+            const randomWord = words[Math.floor(Math.random() * words.length)];
+            
+            return randomWord.toUpperCase();
         } catch (error) {
             console.error('Error fetching random word:', error);
             return "PUZZLE"; // Fallback word
@@ -334,7 +383,6 @@ class DeadDropGame {
         } catch (error) {
             console.error('Error fetching Wikipedia data:', error);
         }
-    }
 
     gameLoop() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -367,8 +415,43 @@ class DeadDropGame {
     }
 
     endGame() {
-        // Implement end game logic here
-        console.log("Game Over");
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '30px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Game Over', this.canvas.width / 2, this.canvas.height / 2 - 50);
+        this.ctx.fillText(`Final Word: ${this.finalPuzzleWord}`, this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.fillText(`Letters Collected: ${this.lettersCollected.join(' ')}`, this.canvas.width / 2, this.canvas.height / 2 + 50);
+
+        const restartButton = document.createElement('button');
+        restartButton.textContent = 'Restart Game';
+        restartButton.style.position = 'absolute';
+        restartButton.style.left = '50%';
+        restartButton.style.top = '70%';
+        restartButton.style.transform = 'translateX(-50%)';
+        document.body.appendChild(restartButton);
+
+        restartButton.addEventListener('click', () => {
+            restartButton.remove();
+            this.resetGame();
+        });
+    }
+
+    resetGame() {
+        this.lettersCollected = [];
+        this.finalPuzzleWord = null;
+        this.getRandomWord().then(word => {
+            this.finalPuzzleWord = word;
+            console.log("New final puzzle word:", this.finalPuzzleWord);
+        });
+        this.player.x = 0;
+        this.playerNearMailbox = false;
+        this.remainingGuesses = 7;
+        this.hideGameElements();
+        this.loadNewMailbox();
+        this.gameLoop();
     }
 }
 
