@@ -367,91 +367,92 @@ class DeadDropGame {
     }
 
     async loadNewMailbox() {
-        const x = Math.random() * (this.canvas.width - 60);
-        this.currentMailbox = new Mailbox(x, this.canvas.height - 150, this);
-        this.remainingGuesses = 7;
+    const x = Math.random() * (this.canvas.width - 60);
+    this.currentMailbox = new Mailbox(x, this.canvas.height - 150, this);
+    this.remainingGuesses = 7;
 
-        try {
-            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-            const data = await response.json();
-            const img = new Image();
-            img.src = data.thumbnail.source;
-            img.onload = () => {
-                this.currentMailbox.faceImage = img;
-            };
-            this.currentMailbox.correctAnswer = data.title.toLowerCase();
-        } catch (error) {
-            console.error('Error fetching Wikipedia data:', error);
+    try {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const data = await response.json();
+        const img = new Image();
+        img.src = data.thumbnail.source;
+        img.onload = () => {
+            this.currentMailbox.faceImage = img;
+        };
+        this.currentMailbox.correctAnswer = data.title.toLowerCase();
+    } catch (error) {
+        console.error('Error fetching Wikipedia data:', error);
+    }
+}
+
+gameLoop() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.player.move();
+    this.draw();
+    this.checkPlayerMailboxCollision();
+    requestAnimationFrame(() => this.gameLoop());
+}
+
+checkPlayerMailboxCollision() {
+    if (this.currentMailbox) {
+        const playerRight = this.player.x + this.player.width;
+        const playerBottom = this.player.y + this.player.height;
+        const mailboxRight = this.currentMailbox.x + this.currentMailbox.width;
+        const mailboxBottom = this.currentMailbox.y + this.currentMailbox.height;
+
+        this.playerNearMailbox = (
+            this.player.x < mailboxRight &&
+            playerRight > this.currentMailbox.x &&
+            this.player.y < mailboxBottom &&
+            playerBottom > this.currentMailbox.y
+        );
+
+        if (this.playerNearMailbox) {
+            this.showGameElements();
+        } else {
+            this.hideGameElements();
         }
-
-    gameLoop() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.player.move();
-        this.draw();
-        this.checkPlayerMailboxCollision();
-        requestAnimationFrame(() => this.gameLoop());
     }
+}
 
-    checkPlayerMailboxCollision() {
-        if (this.currentMailbox) {
-            const playerRight = this.player.x + this.player.width;
-            const playerBottom = this.player.y + this.player.height;
-            const mailboxRight = this.currentMailbox.x + this.currentMailbox.width;
-            const mailboxBottom = this.currentMailbox.y + this.currentMailbox.height;
+endGame() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = 'black';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.font = '30px Arial';
+    this.ctx.fillStyle = 'white';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Game Over', this.canvas.width / 2, this.canvas.height / 2 - 50);
+    this.ctx.fillText(`Final Word: ${this.finalPuzzleWord}`, this.canvas.width / 2, this.canvas.height / 2);
+    this.ctx.fillText(`Letters Collected: ${this.lettersCollected.join(' ')}`, this.canvas.width / 2, this.canvas.height / 2 + 50);
 
-            this.playerNearMailbox = (
-                this.player.x < mailboxRight &&
-                playerRight > this.currentMailbox.x &&
-                this.player.y < mailboxBottom &&
-                playerBottom > this.currentMailbox.y
-            );
+    const restartButton = document.createElement('button');
+    restartButton.textContent = 'Restart Game';
+    restartButton.style.position = 'absolute';
+    restartButton.style.left = '50%';
+    restartButton.style.top = '70%';
+    restartButton.style.transform = 'translateX(-50%)';
+    document.body.appendChild(restartButton);
 
-            if (this.playerNearMailbox) {
-                this.showGameElements();
-            } else {
-                this.hideGameElements();
-            }
-        }
-    }
+    restartButton.addEventListener('click', () => {
+        restartButton.remove();
+        this.resetGame();
+    });
+}
 
-    endGame() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('Game Over', this.canvas.width / 2, this.canvas.height / 2 - 50);
-        this.ctx.fillText(`Final Word: ${this.finalPuzzleWord}`, this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.fillText(`Letters Collected: ${this.lettersCollected.join(' ')}`, this.canvas.width / 2, this.canvas.height / 2 + 50);
-
-        const restartButton = document.createElement('button');
-        restartButton.textContent = 'Restart Game';
-        restartButton.style.position = 'absolute';
-        restartButton.style.left = '50%';
-        restartButton.style.top = '70%';
-        restartButton.style.transform = 'translateX(-50%)';
-        document.body.appendChild(restartButton);
-
-        restartButton.addEventListener('click', () => {
-            restartButton.remove();
-            this.resetGame();
-        });
-    }
-
-    resetGame() {
-        this.lettersCollected = [];
-        this.finalPuzzleWord = null;
-        this.getRandomWord().then(word => {
-            this.finalPuzzleWord = word;
-            console.log("New final puzzle word:", this.finalPuzzleWord);
-        });
-        this.player.x = 0;
-        this.playerNearMailbox = false;
-        this.remainingGuesses = 7;
-        this.hideGameElements();
-        this.loadNewMailbox();
-        this.gameLoop();
+resetGame() {
+    this.lettersCollected = [];
+    this.finalPuzzleWord = null;
+    this.getRandomWord().then(word => {
+        this.finalPuzzleWord = word;
+        console.log("New final puzzle word:", this.finalPuzzleWord);
+    });
+    this.player.x = 0;
+    this.playerNearMailbox = false;
+    this.remainingGuesses = 7;
+    this.hideGameElements();
+    this.loadNewMailbox();
+    this.gameLoop();
     }
 }
 
