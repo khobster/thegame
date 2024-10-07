@@ -89,6 +89,7 @@ class DeadDropGame {
 
         this.hideGameElements();
         this.addEventListeners();
+        this.addTouchControls();
         this.imagesLoaded = false;
 
         Promise.all(this.imageLoadPromises).then(() => {
@@ -103,6 +104,9 @@ class DeadDropGame {
         if (this.player) {
             this.player.y = this.canvas.height - 150;
         }
+        if (this.currentMailbox) {
+            this.currentMailbox.y = this.canvas.height - 150;
+        }
         if (this.imagesLoaded) {
             this.draw();
         }
@@ -112,6 +116,29 @@ class DeadDropGame {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
         this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
+    }
+
+    addTouchControls() {
+        const leftButton = document.createElement('button');
+        leftButton.textContent = '←';
+        leftButton.style.position = 'absolute';
+        leftButton.style.left = '10px';
+        leftButton.style.bottom = '10px';
+        leftButton.style.fontSize = '24px';
+        document.body.appendChild(leftButton);
+
+        const rightButton = document.createElement('button');
+        rightButton.textContent = '→';
+        rightButton.style.position = 'absolute';
+        rightButton.style.left = '70px';
+        rightButton.style.bottom = '10px';
+        rightButton.style.fontSize = '24px';
+        document.body.appendChild(rightButton);
+
+        leftButton.addEventListener('touchstart', () => this.player.direction = -1);
+        leftButton.addEventListener('touchend', () => this.player.direction = 0);
+        rightButton.addEventListener('touchstart', () => this.player.direction = 1);
+        rightButton.addEventListener('touchend', () => this.player.direction = 0);
     }
 
     handleKeyDown(e) {
@@ -128,6 +155,7 @@ class DeadDropGame {
         this.guessButton.style.display = 'none';
         this.lettersCollectedDisplay.style.display = 'none';
         this.hintArea.style.display = 'none';
+        document.getElementById('solveButton').style.display = 'none';
     }
 
     showGameElements() {
@@ -135,6 +163,7 @@ class DeadDropGame {
         this.guessButton.style.display = 'block';
         this.lettersCollectedDisplay.style.display = 'block';
         this.hintArea.style.display = 'block';
+        document.getElementById('solveButton').style.display = 'block';
     }
 
     showTitleScreen() {
@@ -173,7 +202,7 @@ class DeadDropGame {
         this.ctx.fillText('3. Guess the Wikipedia article title', this.canvas.width / 2, this.canvas.height / 3 + 120);
 
         const continueButton = document.createElement('button');
-        continueButton.textContent = 'CONTINUE';
+        continueButton.textContent = 'START GAME';
         continueButton.style.position = 'absolute';
         continueButton.style.left = '50%';
         continueButton.style.top = '70%';
@@ -335,6 +364,11 @@ class DeadDropGame {
                 this.hideGameElements();
             }
         }
+    }
+
+    endGame() {
+        // Implement end game logic here
+        console.log("Game Over");
     }
 }
 
