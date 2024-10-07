@@ -93,7 +93,7 @@ class DeadDropGame {
 
         Promise.all(this.imageLoadPromises).then(() => {
             this.imagesLoaded = true;
-            this.showTitleScreen(); // Now calls the showTitleScreen function.
+            this.showTitleScreen();
         });
     }
 
@@ -156,12 +156,42 @@ class DeadDropGame {
 
         startButton.addEventListener('click', () => {
             startButton.remove();
+            this.showInstructionScreen();
+        });
+    }
+
+    showInstructionScreen() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.font = '24px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Instructions:', this.canvas.width / 2, this.canvas.height / 3);
+        this.ctx.fillText('1. Move the player with arrow keys', this.canvas.width / 2, this.canvas.height / 3 + 40);
+        this.ctx.fillText('2. Approach a mailbox to start guessing', this.canvas.width / 2, this.canvas.height / 3 + 80);
+        this.ctx.fillText('3. Guess the Wikipedia article title', this.canvas.width / 2, this.canvas.height / 3 + 120);
+
+        const continueButton = document.createElement('button');
+        continueButton.textContent = 'CONTINUE';
+        continueButton.style.position = 'absolute';
+        continueButton.style.left = '50%';
+        continueButton.style.top = '70%';
+        continueButton.style.transform = 'translateX(-50%)';
+        document.body.appendChild(continueButton);
+
+        continueButton.addEventListener('click', () => {
+            continueButton.remove();
             this.startGame();
         });
     }
 
     async handleGuess(userGuess) {
-        if (!this.playerNearMailbox) return;
+        console.log('Handling guess:', userGuess);
+        if (!this.playerNearMailbox) {
+            console.log('Player not near mailbox');
+            return;
+        }
 
         userGuess = userGuess.toLowerCase().trim();
         const correctAnswer = this.currentMailbox.correctAnswer.toLowerCase();
@@ -278,9 +308,33 @@ class DeadDropGame {
     }
 
     gameLoop() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.player.move();
         this.draw();
+        this.checkPlayerMailboxCollision();
         requestAnimationFrame(() => this.gameLoop());
+    }
+
+    checkPlayerMailboxCollision() {
+        if (this.currentMailbox) {
+            const playerRight = this.player.x + this.player.width;
+            const playerBottom = this.player.y + this.player.height;
+            const mailboxRight = this.currentMailbox.x + this.currentMailbox.width;
+            const mailboxBottom = this.currentMailbox.y + this.currentMailbox.height;
+
+            this.playerNearMailbox = (
+                this.player.x < mailboxRight &&
+                playerRight > this.currentMailbox.x &&
+                this.player.y < mailboxBottom &&
+                playerBottom > this.currentMailbox.y
+            );
+
+            if (this.playerNearMailbox) {
+                this.showGameElements();
+            } else {
+                this.hideGameElements();
+            }
+        }
     }
 }
 
