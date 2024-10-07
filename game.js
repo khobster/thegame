@@ -1,3 +1,53 @@
+class Player {
+    constructor(x, y, canvasWidth, game) {
+        this.x = x;
+        this.y = y;
+        this.width = 60;
+        this.height = 100;
+        this.speed = 5;
+        this.direction = 0; // 0: not moving, -1: left, 1: right
+        this.canvasWidth = canvasWidth;
+        this.game = game;
+    }
+
+    move() {
+        this.x += this.speed * this.direction;
+        if (this.x < 0) this.x = 0;
+        if (this.x > this.canvasWidth - this.width) this.x = this.canvasWidth - this.width;
+    }
+
+    draw(ctx) {
+        if (this.game.loadedImages.playerSprite) {
+            ctx.drawImage(this.game.loadedImages.playerSprite, this.x, this.y, this.width, this.height);
+        }
+    }
+}
+
+class Mailbox {
+    constructor(x, y, game) {
+        this.x = x;
+        this.y = y;
+        this.width = 60;
+        this.height = 100;
+        this.correctAnswer = null;
+        this.faceImage = null;
+        this.game = game;
+    }
+
+    draw(ctx) {
+        if (this.game.loadedImages.mailbox) {
+            ctx.drawImage(this.game.loadedImages.mailbox, this.x, this.y, this.width, this.height);
+        }
+        if (this.faceImage) {
+            const imgWidth = 100;
+            const imgHeight = this.faceImage.height * (imgWidth / this.faceImage.width);
+            const imgX = this.x + this.width / 2 - imgWidth / 2;
+            const imgY = this.y - imgHeight - 10;
+            ctx.drawImage(this.faceImage, imgX, imgY, imgWidth, imgHeight);
+        }
+    }
+}
+
 class DeadDropGame {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -239,8 +289,6 @@ class DeadDropGame {
         this.startGame();
     }
 }
-
-// Player and Mailbox classes will remain the same as they were in the previous version
 
 window.onload = () => {
     const game = new DeadDropGame('gameCanvas');
