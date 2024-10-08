@@ -18,13 +18,13 @@ class DeadDropGame {
 
     showTitleScreen() {
         this.gamePhase = 'title';
-        this.imageContainer.innerHTML = '<h1>Dead Drop: Million Dollar Challenge</h1>';
+        this.imageContainer.innerHTML = '<h1>Dead Drop</h1>';
         this.cashDisplay.textContent = '';
         this.wagerInput.style.display = 'none';
         this.optionsContainer.innerHTML = `
             <button class="option-button" id="startButton">Start Game</button>
-            <p>Win $1,000,000 by doubling your money with each correct guess!</p>
-            <p>Careful: One wrong guess and it's game over!</p>
+            <p>the double or nothing game.</p>
+            <p>get to a million to win</p>
         `;
         document.getElementById('startButton').addEventListener('click', () => this.startGame());
     }
