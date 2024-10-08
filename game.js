@@ -24,7 +24,7 @@ class DeadDropGame {
         this.optionsContainer.innerHTML = `
             <button class="option-button" id="startButton">Start Game</button>
             <p>the double down game.</p>
-            <p>gotta hit a million to win.</p>
+            <p>hit a million to win.</p>
         `;
         document.getElementById('startButton').addEventListener('click', () => this.startGame());
     }
