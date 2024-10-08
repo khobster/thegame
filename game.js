@@ -18,13 +18,13 @@ class DeadDropGame {
 
     showTitleScreen() {
         this.gamePhase = 'title';
-        this.imageContainer.innerHTML = '<h1>Dead Drop</h1>';
+        this.imageContainer.innerHTML = '<h1>Dead Drop: Million Dollar Challenge</h1>';
         this.cashDisplay.textContent = '';
         this.wagerInput.style.display = 'none';
         this.optionsContainer.innerHTML = `
             <button class="option-button" id="startButton">Start Game</button>
-            <p>the double or nothing game.</p>
-            <p>get to a million to win</p>
+            <p>Win $1,000,000 by doubling your money with each correct guess!</p>
+            <p>Careful: One wrong guess and it's game over!</p>
         `;
         document.getElementById('startButton').addEventListener('click', () => this.startGame());
     }
@@ -63,6 +63,50 @@ class DeadDropGame {
         }
     }
 
+    async getRandomArticleWithImage() {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const data = await response.json();
+        if (data.thumbnail && data.thumbnail.source) {
+            return data;
+        }
+        return this.getRandomArticleWithImage(); // Recursively try again
+    }
+
+    async generateAnswerOptions(correctAnswer) {
+        let options = [correctAnswer];
+        const relatedArticles = await this.getRelatedArticles(correctAnswer);
+        
+        // Add up to 3 incorrect options
+        for (let i = 0; i < 3 && i < relatedArticles.length; i++) {
+            options.push(relatedArticles[i].title);
+        }
+
+        // If we don't have enough options, add some random ones
+        while (options.length < 4) {
+            const randomArticle = await this.getRandomArticleWithImage();
+            options.push(randomArticle.title);
+        }
+
+        return this.shuffleArray(options);
+    }
+
+    async getRelatedArticles(title) {
+        const encodedTitle = encodeURIComponent(title);
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=10`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.query.search.filter(item => item.title !== title);
+    }
+
+    shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
     handleWager() {
         const wager = parseInt(this.wagerInput.value) || 0;
         if (wager <= 0 || wager > this.cash) {
@@ -73,8 +117,6 @@ class DeadDropGame {
         this.wagerInput.style.display = 'none';
         this.showAnswerOptions();
     }
-
-    // ... (keep other methods like getRandomArticleWithImage, generateAnswerOptions, etc.)
 
     showAnswerOptions() {
         this.optionsContainer.innerHTML = '';
