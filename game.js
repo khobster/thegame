@@ -95,25 +95,21 @@ class DeadDropGame {
             }));
         }
 
-        this.lettersCollected = [];
-        this.finalPuzzleWord = null;
-        this.getRandomWord().then(word => {
-            this.finalPuzzleWord = word;
-            console.log("Final puzzle word:", this.finalPuzzleWord);
-        });
         this.player = new Player(0, this.canvas.height - 150, this.canvas.width, this);
         this.currentMailbox = null;
 
+        this.cash = 1000;
+        this.totalQuestions = 10;
+        this.currentQuestion = 0;
+        this.currentWager = 0;
+        this.answerOptions = [];
+        this.gamePhase = 'title'; // 'title', 'instructions', 'walking', 'viewing', 'wagering', 'guessing', 'result'
+        this.viewingTime = 10;
+        this.viewingTimeLeft = 0;
+        this.viewingTimer = null;
+
         this.playerNearMailbox = false;
-        this.remainingGuesses = 7;
 
-        this.guessInput = document.getElementById('guessInput');
-        this.guessButton = document.getElementById('guessButton');
-        this.solveButton = document.getElementById('solveButton');
-        this.leftArrow = document.getElementById('leftArrow');
-        this.rightArrow = document.getElementById('rightArrow');
-
-        this.hideGameElements();
         this.addEventListeners();
         this.imagesLoaded = false;
 
@@ -140,17 +136,15 @@ class DeadDropGame {
     addEventListeners() {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
-        this.guessButton.addEventListener('click', () => this.handleGuess(this.guessInput.value));
-        this.solveButton.addEventListener('click', () => this.handleSolve());
         
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
         this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
 
-        this.leftArrow.addEventListener('touchstart', () => this.player.direction = -1);
-        this.leftArrow.addEventListener('touchend', () => this.player.direction = 0);
-        this.rightArrow.addEventListener('touchstart', () => this.player.direction = 1);
-        this.rightArrow.addEventListener('touchend', () => this.player.direction = 0);
+        document.getElementById('leftArrow').addEventListener('touchstart', () => this.player.direction = -1);
+        document.getElementById('leftArrow').addEventListener('touchend', () => this.player.direction = 0);
+        document.getElementById('rightArrow').addEventListener('touchstart', () => this.player.direction = 1);
+        document.getElementById('rightArrow').addEventListener('touchend', () => this.player.direction = 0);
     }
 
     handleKeyDown(e) {
@@ -176,35 +170,19 @@ class DeadDropGame {
         this.player.direction = 0;
     }
 
-    hideGameElements() {
-        this.guessInput.style.display = 'none';
-        this.guessButton.style.display = 'none';
-        this.solveButton.style.display = 'none';
-        this.leftArrow.style.display = 'none';
-        this.rightArrow.style.display = 'none';
-    }
-
-    showGameElements() {
-        this.guessInput.style.display = 'block';
-        this.guessButton.style.display = 'block';
-        this.solveButton.style.display = 'block';
-        if (window.innerWidth <= 768) {
-            this.leftArrow.style.display = 'block';
-            this.rightArrow.style.display = 'block';
-        }
-    }
-
     showTitleScreen() {
+        this.gamePhase = 'title';
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
-        this.ctx.fillStyle = 'white';
+        this.ctx.font = '48px Orbitron';
+        this.ctx.fillStyle = '#4CAF50';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('Dead Drop', this.canvas.width / 2, this.canvas.height / 2 - 20);
+        this.ctx.fillText('Dead Drop', this.canvas.width / 2, this.canvas.height / 2 - 50);
 
         const startButton = document.createElement('button');
         startButton.textContent = 'START MISSION';
+        startButton.className = 'option-button';
         startButton.style.position = 'absolute';
         startButton.style.left = '50%';
         startButton.style.top = '60%';
@@ -218,18 +196,20 @@ class DeadDropGame {
     }
 
     showInstructionScreen() {
+        this.gamePhase = 'instructions';
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'black';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '24px Arial';
+        this.ctx.font = '24px Roboto Mono';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
         
         const instructions = [
             "Agent, your mission:",
-            "1. Locate dead drops (mailboxes)",
-            "2. Decrypt intel (guess Wikipedia articles)",
-            "3. Collect codewords to uncover the final secret"
+            "1. Approach the dead drop (mailbox)",
+            "2. Analyze the intel (image)",
+            "3. Wager your resources",
+            "4. Identify the subject (multiple choice)"
         ];
         
         instructions.forEach((line, index) => {
@@ -238,6 +218,7 @@ class DeadDropGame {
 
         const playButton = document.createElement('button');
         playButton.textContent = 'Begin Mission';
+        playButton.className = 'option-button';
         playButton.style.position = 'absolute';
         playButton.style.left = '50%';
         playButton.style.top = '70%';
@@ -250,226 +231,83 @@ class DeadDropGame {
         });
     }
 
-    async handleGuess(userGuess) {
-        console.log('Handling guess:', userGuess);
-        if (!this.playerNearMailbox) {
-            console.log('Player not near mailbox');
+    startGame() {
+        this.cash = 1000;
+        this.currentQuestion = 0;
+        this.gamePhase = 'walking';
+        this.loadNewQuestion();
+    }
+
+    async loadNewQuestion() {
+        if (this.currentQuestion >= this.totalQuestions) {
+            this.endGame();
             return;
         }
 
-        userGuess = userGuess.toLowerCase().trim();
-        const correctAnswer = this.currentMailbox.correctAnswer.toLowerCase();
+        this.currentQuestion++;
+        this.gamePhase = 'walking';
+        this.playerNearMailbox = false;
 
-        if (this.isCorrectGuess(userGuess, correctAnswer)) {
-            this.handleCorrectGuess();
-        } else {
-            this.remainingGuesses--;
-            if (this.remainingGuesses > 0) {
-                const hint = await this.generateHint(userGuess, correctAnswer);
-                this.displayHint(hint);
-            } else {
-                this.endGame();
-            }
-        }
-
-        this.guessInput.value = '';
-    }
-
-    isCorrectGuess(guess, correctAnswer) {
-        return guess === correctAnswer || correctAnswer.includes(guess);
-    }
-
-    async generateHint(userGuess, correctAnswer) {
         try {
-            const response = await fetch('https://us-central1-thegame-91290.cloudfunctions.net/generateHint', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    guess: userGuess,
-                    correctAnswer: correctAnswer
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.hint;
-        } catch (error) {
-            console.error("Error generating hint:", error);
-            return "Sorry, I'm having trouble thinking of a good hint. Try another guess!";
-        }
-    }
-
-    displayHint(hint) {
-        this.hint = hint;
-    }
-
-    handleCorrectGuess() {
-        this.hint = "Correct! You've uncovered a letter.";
-        this.addLetterToCollection();
-        this.remainingGuesses = 7;
-        setTimeout(() => {
-            this.loadNewMailbox();
-        }, 1500);
-    }
-
-    async getRandomWord() {
-        try {
-            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            
-            const words = data.title.split(/\s+/).filter(word => 
-                word.length > 3 && !word.includes('(') && !word.includes(')')
+            const article = await this.getRandomArticleWithImage();
+            this.currentMailbox = new Mailbox(
+                Math.random() * (this.canvas.width - 60),
+                this.canvas.height - 150,
+                this
             );
-            
-            if (words.length === 0) {
-                return this.getRandomWord();
-            }
-            
-            const randomWord = words[Math.floor(Math.random() * words.length)];
-            
-            return randomWord.toUpperCase();
+            this.currentMailbox.correctAnswer = article.title;
+            this.currentMailbox.faceImage = new Image();
+            this.currentMailbox.faceImage.src = article.thumbnail.source;
+
+            this.answerOptions = await this.generateAnswerOptions(article.title);
         } catch (error) {
-            console.error('Error fetching random word:', error);
-            return "PUZZLE";
+            console.error('Error loading question:', error);
+            this.loadNewQuestion(); // Try again
         }
     }
 
-    addLetterToCollection() {
-        const newLetter = this.finalPuzzleWord[this.lettersCollected.length];
-        this.lettersCollected.push(newLetter);
-    }
-
-    draw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        if (this.imagesLoaded) {
-            this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
-            this.player.draw(this.ctx);
-            if (this.currentMailbox) {
-                this.drawMailboxAndImage();
-            }
-            this.drawHintArea();
-            this.drawLettersCollected();
+    async getRandomArticleWithImage() {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const data = await response.json();
+        if (data.thumbnail && data.thumbnail.source) {
+            return data;
         }
+        return this.getRandomArticleWithImage(); // Recursively try again
     }
 
-    drawMailboxAndImage() {
-        const mailboxX = (this.canvas.width - this.currentMailbox.width) / 2;
-        const mailboxY = this.canvas.height - 150;
-        this.currentMailbox.x = mailboxX;
-        this.currentMailbox.y = mailboxY;
-        this.currentMailbox.draw(this.ctx);
-
-        if (this.currentMailbox.faceImage) {
-            const imgWidth = 200;
-            const imgHeight = this.currentMailbox.faceImage.height * (imgWidth / this.currentMailbox.faceImage.width);
-            const imgX = mailboxX + this.currentMailbox.width / 2 - imgWidth / 2;
-            const imgY = mailboxY - imgHeight - 20;
-
-            this.ctx.fillStyle = 'white';
-            this.ctx.fillRect(imgX - 10, imgY - 10, imgWidth + 20, imgHeight + 20);
-            this.ctx.strokeStyle = 'gold';
-            this.ctx.lineWidth = 5;
-            this.ctx.strokeRect(imgX - 10, imgY - 10, imgWidth + 20, imgHeight + 20);
-
-            this.ctx.drawImage(this.currentMailbox.faceImage, imgX, imgY, imgWidth, imgHeight);
+    async generateAnswerOptions(correctAnswer) {
+        let options = [correctAnswer];
+        const relatedArticles = await this.getRelatedArticles(correctAnswer);
+        
+        // Add up to 3 incorrect options
+        for (let i = 0; i < 3 && i < relatedArticles.length; i++) {
+            options.push(relatedArticles[i].title);
         }
-    }
 
-    drawHintArea() {
-        if (this.hint) {
-            const maxWidth = this.canvas.width * 0.8;
-            const lineHeight = 30;
-            const lines = this.getLines(this.ctx, this.hint, maxWidth);
-
-            const textHeight = lines.length * lineHeight;
-            const rectHeight = textHeight + 40;
-            const rectY = 70;
-
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            this.ctx.fillRect(10, rectY, this.canvas.width - 20, rectHeight);
-
-            this.ctx.font = '18px Arial';
-            this.ctx.fillStyle = 'white';
-            this.ctx.textAlign = 'left';
-            lines.forEach((line, index) => {
-                this.ctx.fillText(line, 20, rectY + 30 + index * lineHeight);
-            });
+        // If we don't have enough options, add some random ones
+        while (options.length < 4) {
+            const randomArticle = await this.getRandomArticleWithImage();
+            options.push(randomArticle.title);
         }
+
+        return this.shuffleArray(options);
     }
 
-    drawLettersCollected() {
-        const text = `Letters: ${this.lettersCollected.join(' ')}`;
-        this.ctx.font = '24px Arial';
-        this.ctx.fillStyle = 'yellow';
-        this.ctx.textAlign = 'left';
-        this.ctx.shadowColor = 'black';
-        this.ctx.shadowBlur = 4;
-        this.ctx.shadowOffsetX = 2;
-        this.ctx.shadowOffsetY = 2;
-        this.ctx.fillText(text, 20, 40);
-        this.ctx.shadowBlur = 0;
-        this.ctx.shadowOffsetX = 0;
-        this.ctx.shadowOffsetY = 0;
+    async getRelatedArticles(title) {
+        const encodedTitle = encodeURIComponent(title);
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=10`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.query.search.filter(item => item.title !== title);
     }
 
-    getLines(ctx, text, maxWidth) {
-        const words = text.split(" ");
-        const lines = [];
-        let currentLine = words[0];
-
-        for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const width = ctx.measureText(currentLine + " " + word).width;
-            if (width < maxWidth) {
-                currentLine += " " + word;
-            } else {
-                lines.push(currentLine);
-                currentLine = word;
-            }
+    shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
         }
-        lines.push(currentLine);
-        return lines;
-    }
-
-    startGame() {
-        this.showGameElements();
-        this.loadNewMailbox();
-        this.gameLoop();
-    }
-
-    async loadNewMailbox() {
-        const x = Math.random() * (this.canvas.width - 60);
-        this.currentMailbox = new Mailbox(x, this.canvas.height - 150, this);
-        this.remainingGuesses = 7;
-
-        try {
-            const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-            const data = await response.json();
-            const img = new Image();
-            img.src = data.thumbnail.source;
-            img.onload = () => {
-                this.currentMailbox.faceImage = img;
-            };
-            this.currentMailbox.correctAnswer = data.title.toLowerCase();
-        } catch (error) {
-            console.error('Error fetching Wikipedia data:', error);
-        }
-    }
-
-    gameLoop() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.player.move();
-        this.draw();
-        this.checkPlayerMailboxCollision();
-        requestAnimationFrame(() => this.gameLoop());
+        return array;
     }
 
     checkPlayerMailboxCollision() {
@@ -486,66 +324,151 @@ class DeadDropGame {
                 playerBottom > this.currentMailbox.y
             );
 
-            if (this.playerNearMailbox) {
-                this.showGameElements();
-            } else {
-                this.hideGameElements();
+            if (this.playerNearMailbox && this.gamePhase === 'walking') {
+                this.gamePhase = 'viewing';
+                this.startViewingPhase();
             }
         }
     }
 
-    handleSolve() {
-        const guess = prompt("Enter your guess for the final word:");
-        if (guess && guess.toUpperCase() === this.finalPuzzleWord) {
-            alert("Congratulations! You've solved the puzzle!");
-            this.endGame(true);
+    startViewingPhase() {
+        this.viewingTimeLeft = this.viewingTime;
+        this.viewingTimer = setInterval(() => {
+            this.viewingTimeLeft--;
+            if (this.viewingTimeLeft <= 0) {
+                clearInterval(this.viewingTimer);
+                this.gamePhase = 'wagering';
+                this.promptForWager();
+            }
+        }, 1000);
+    }
+
+    promptForWager() {
+        const wager = prompt(`You have $${this.cash}. How much do you want to wager?`);
+        this.currentWager = Math.min(Math.max(parseInt(wager) || 0, 0), this.cash);
+        this.gamePhase = 'guessing';
+        this.showAnswerOptions();
+    }
+
+    showAnswerOptions() {
+        const optionsContainer = document.getElementById('optionsContainer');
+        optionsContainer.innerHTML = ''; // Clear previous options
+
+        this.answerOptions.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.textContent = option;
+            button.className = 'option-button';
+            button.addEventListener('click', () => this.handleGuess(option));
+            optionsContainer.appendChild(button);
+        });
+    }
+
+    handleGuess(userGuess) {
+        const isCorrect = userGuess === this.currentMailbox.correctAnswer;
+
+        if (isCorrect) {
+            this.cash += this.currentWager;
+            this.showMessage(`Correct! You've earned $${this.currentWager}.`);
         } else {
-            alert("Sorry, that's not correct. Keep trying!");
+            this.cash -= this.currentWager;
+            this.showMessage(`Incorrect. You've lost $${this.currentWager}.`);
+        }
+
+        this.gamePhase = 'result';
+        setTimeout(() => {
+            this.loadNewQuestion();
+        }, 2000);
+
+        // Clear the options
+        document.getElementById('optionsContainer').innerHTML = '';
+    }
+
+    showMessage(message) {
+        const messageBox = document.createElement('div');
+        messageBox.id = 'messageBox';
+        messageBox.textContent = message;
+        document.body.appendChild(messageBox);
+
+        setTimeout(() => messageBox.remove(), 2000);
+    }
+
+    draw() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        if (this.imagesLoaded) {
+            this.ctx.drawImage(this.loadedImages.background, 0, 0, this.canvas.width, this.canvas.height);
+            this.player.draw(this.ctx);
+            if (this.currentMailbox) {
+                this.drawMailboxAndImage();
+            }
+        }
+
+        // Draw cash and question number
+        this.ctx.font = '20px Roboto Mono';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(`Cash: $${this.cash}`, 20, 30);
+        this.ctx.fillText(`Question: ${this.currentQuestion}/${this.totalQuestions}`, 20, 60);
+
+        if (this.gamePhase === 'viewing') {
+            this.drawViewingTimer();
         }
     }
 
-    endGame(solved = false) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.font = '30px Arial';
+    drawMailboxAndImage() {
+        this.currentMailbox.draw(this.ctx);
+
+        if (this.currentMailbox.faceImage && (this.gamePhase === 'viewing' || this.gamePhase === 'wagering' || this.gamePhase === 'guessing')) {
+            const imgWidth = 200;
+            const imgHeight = this.currentMailbox.faceImage.height * (imgWidth / this.currentMailbox.faceImage.width);
+            const imgX = this.currentMailbox.x + this.currentMailbox.width / 2 - imgWidth / 2;
+            const imgY = this.currentMailbox.y - imgHeight - 20;
+
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillRect(imgX - 10, imgY - 10, imgWidth + 20, imgHeight + 20);
+            this.ctx.strokeStyle = 'gold';
+            this.ctx.lineWidth = 5;
+            this.ctx.strokeRect(imgX - 10, imgY - 10, imgWidth + 20, imgHeight + 20);
+
+            this.ctx.drawImage(this.currentMailbox.faceImage, imgX, imgY, imgWidth, imgHeight);
+        }
+    }
+
+    drawViewingTimer() {
+        this.ctx.font = '24px Orbitron';
         this.ctx.fillStyle = 'white';
         this.ctx.textAlign = 'center';
-        if (solved) {
-            this.ctx.fillText('Congratulations! Mission Accomplished', this.canvas.width / 2, this.canvas.height / 2 - 50);
-        } else {
-            this.ctx.fillText('Game Over', this.canvas.width / 2, this.canvas.height / 2 - 50);
-        }
-        this.ctx.fillText(`Final Word: ${this.finalPuzzleWord}`, this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.fillText(`Letters Collected: ${this.lettersCollected.join(' ')}`, this.canvas.width / 2, this.canvas.height / 2 + 50);
+        this.ctx.fillText(`Time: ${this.viewingTimeLeft}s`, this.canvas.width / 2, 30);
+    }
 
-        const restartButton = document.createElement('button');
-        restartButton.textContent = 'New Mission';
-        restartButton.style.position = 'absolute';
-        restartButton.style.left = '50%';
-        restartButton.style.top = '70%';
-        restartButton.style.transform = 'translateX(-50%)';
-        document.body.appendChild(restartButton);
-
-        restartButton.addEventListener('click', () => {
-            restartButton.remove();
-            this.resetGame();
-        });
+    endGame() {
+        this.showMessage(`Game Over! Your final score: $${this.cash}`);
+        setTimeout(() => {
+            if (confirm("Do you want to play again?")) {
+                this.resetGame();
+            } else {
+                this.showTitleScreen();
+            }
+        }, 2000);
     }
 
     resetGame() {
-        this.lettersCollected = [];
-        this.finalPuzzleWord = null;
-        this.getRandomWord().then(word => {
-            this.finalPuzzleWord = word;
-            console.log("New final puzzle word:", this.finalPuzzleWord);
-        });
+        this.cash = 1000;
+        this.currentQuestion = 0;
+        this.gamePhase = 'walking';
         this.player.x = 0;
-        this.playerNearMailbox = false;
-        this.remainingGuesses = 7;
-        this.hideGameElements();
-        this.loadNewMailbox();
-        this.gameLoop();
+        this.loadNewQuestion();
+    }
+
+    gameLoop() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        if (this.gamePhase === 'walking') {
+            this.player.move();
+            this.checkPlayerMailboxCollision();
+        }
+        
+        this.draw();
+        requestAnimationFrame(() => this.gameLoop());
     }
 }
 
