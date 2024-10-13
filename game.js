@@ -41,13 +41,8 @@ class DeadDropGame {
         this.showLoadingIndicator();
 
         try {
-            const [article, answerOptions] = await Promise.all([
-                this.getRandomArticleWithImage(),
-                this.generateAnswerOptions()
-            ]);
-
+            const article = await this.getRandomArticleWithImage();
             this.correctAnswer = article.title;
-            this.answerOptions = this.insertCorrectAnswer(answerOptions, this.correctAnswer);
 
             const img = document.createElement('img');
             img.src = article.thumbnail.source;
@@ -61,6 +56,8 @@ class DeadDropGame {
 
             this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
             document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+
+            this.answerOptions = await this.generateAnswerOptions();
 
             this.hideLoadingIndicator();
             this.gamePhase = 'wager';
@@ -82,44 +79,33 @@ class DeadDropGame {
 
     async generateAnswerOptions() {
         try {
-            const [relatedArticles, randomArticles] = await Promise.all([
-                this.getRelatedArticles('Wikipedia'),
-                this.getMultipleRandomArticles(5)
-            ]);
+            // Get related articles based on the correct answer
+            const relatedArticles = await this.getRelatedArticles(this.correctAnswer);
             
-            let potentialOptions = [...relatedArticles, ...randomArticles]
-                .map(article => article.title || article)
-                .filter(title => this.isGoodOption(title));
+            // Filter and map the related articles
+            let potentialOptions = relatedArticles
+                .map(article => article.title)
+                .filter(title => this.isGoodOption(title) && title !== this.correctAnswer);
             
-            potentialOptions = this.shuffleArray(potentialOptions);
+            // Shuffle and take up to 3 related options
+            potentialOptions = this.shuffleArray(potentialOptions).slice(0, 3);
             
-            // Take up to 4 options
-            return potentialOptions.slice(0, 4);
+            // Add the correct answer
+            potentialOptions.push(this.correctAnswer);
+            
+            // If we don't have enough options, add some clever fake options
+            while (potentialOptions.length < 4) {
+                const fakeOption = this.generateFakeOption(this.correctAnswer);
+                if (!potentialOptions.includes(fakeOption)) {
+                    potentialOptions.push(fakeOption);
+                }
+            }
+            
+            return this.shuffleArray(potentialOptions);
         } catch (error) {
             console.error("Error generating options:", error);
-            return this.generateFallbackOptions();
+            return this.generateFallbackOptions(this.correctAnswer);
         }
-    }
-
-    insertCorrectAnswer(options, correctAnswer) {
-        const index = Math.floor(Math.random() * 4);
-        options[index] = correctAnswer;
-        return options.slice(0, 4);
-    }
-
-    async getMultipleRandomArticles(count) {
-        const articles = [];
-        for (let i = 0; i < count; i++) {
-            const article = await this.getRandomArticle();
-            articles.push(article);
-        }
-        return articles;
-    }
-
-    async getRandomArticle() {
-        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-        const data = await response.json();
-        return { title: data.title, description: data.description };
     }
 
     async getRelatedArticles(title) {
@@ -132,16 +118,37 @@ class DeadDropGame {
     }
 
     isGoodOption(title) {
-        const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:'];
-        return !badPrefixes.some(prefix => title.startsWith(prefix)) && title.length < 50;
+        const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:', 'Wikipedia'];
+        return !badPrefixes.some(prefix => title.startsWith(prefix)) && 
+               title.length < 50 && 
+               title.toLowerCase() !== 'wikipedia' &&
+               !title.includes('Wikipedia');
     }
 
-    generateFallbackOptions() {
+    generateFakeOption(correctAnswer) {
+        const words = correctAnswer.split(' ').filter(word => word.length > 3);
+        if (words.length > 1) {
+            // Swap two words in the correct answer
+            const index1 = Math.floor(Math.random() * words.length);
+            let index2 = Math.floor(Math.random() * words.length);
+            while (index2 === index1) {
+                index2 = Math.floor(Math.random() * words.length);
+            }
+            [words[index1], words[index2]] = [words[index2], words[index1]];
+            return words.join(' ');
+        } else {
+            // If the title is too short, generate a completely new fake option
+            const fakeWords = ['The', 'A', 'An', 'Great', 'Hidden', 'Mysterious', 'Unexpected', 'Secret'];
+            return fakeWords[Math.floor(Math.random() * fakeWords.length)] + ' ' + correctAnswer;
+        }
+    }
+
+    generateFallbackOptions(correctAnswer) {
         return [
-            'The Great Discovery',
-            'An Unexpected Phenomenon',
-            'The Hidden Principle',
-            'A Mysterious Effect'
+            correctAnswer,
+            this.generateFakeOption(correctAnswer),
+            this.generateFakeOption(correctAnswer),
+            this.generateFakeOption(correctAnswer)
         ];
     }
 
