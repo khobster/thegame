@@ -40,49 +40,65 @@ class DeadDropGame {
         this.gamePhase = 'loading';
         this.showLoadingIndicator();
 
-        try {
-            const article = await this.getRandomArticleWithImage();
-            this.correctAnswer = article.title;
+        let retryCount = 0;
+        const maxRetries = 3;
 
-            const img = document.createElement('img');
-            img.src = article.thumbnail.source;
-            this.imageContainer.innerHTML = '';
-            this.imageContainer.appendChild(img);
+        while (retryCount < maxRetries) {
+            try {
+                const article = await this.getRandomArticleWithImage();
+                this.correctAnswer = article.title;
 
-            this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
-            this.wagerInput.style.display = 'block';
-            this.wagerInput.value = this.cash;
-            this.wagerInput.max = this.cash;
+                const img = document.createElement('img');
+                img.src = article.thumbnail.source;
+                this.imageContainer.innerHTML = '';
+                this.imageContainer.appendChild(img);
 
-            this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
-            document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+                this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
+                this.wagerInput.style.display = 'block';
+                this.wagerInput.value = this.cash;
+                this.wagerInput.max = this.cash;
 
-            this.answerOptions = await this.generateAnswerOptions();
+                this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
+                document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
 
-            this.hideLoadingIndicator();
-            this.gamePhase = 'wager';
-        } catch (error) {
-            console.error('Error loading question:', error);
-            this.hideLoadingIndicator();
-            this.loadNewQuestion(); // Try again
+                this.answerOptions = await this.generateAnswerOptions();
+
+                this.hideLoadingIndicator();
+                this.gamePhase = 'wager';
+                return; // Successfully loaded new question, exit the function
+            } catch (error) {
+                console.error('Error loading question:', error);
+                retryCount++;
+                if (retryCount >= maxRetries) {
+                    this.handleLoadingError();
+                    return;
+                }
+                // Wait for a short time before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
     }
 
-    async getRandomArticleWithImage() {
-        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-        const data = await response.json();
-        if (data.thumbnail && data.thumbnail.source) {
-            return data;
+    async getRandomArticleWithImage(maxAttempts = 5) {
+        for (let i = 0; i < maxAttempts; i++) {
+            try {
+                const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+                const data = await response.json();
+                if (data.thumbnail && data.thumbnail.source) {
+                    return data;
+                }
+            } catch (error) {
+                console.error('Error fetching random article:', error);
+            }
         }
-        return this.getRandomArticleWithImage(); // Recursively try again
+        throw new Error('Unable to find an article with an image after multiple attempts');
     }
 
     async generateAnswerOptions() {
         try {
-            // Get related articles based on the correct answer
-            const relatedArticles = await this.getRelatedArticles(this.correctAnswer);
+            const category = await this.determineCategory(this.correctAnswer);
+            const relatedArticles = await this.getRelatedArticles(this.correctAnswer, category);
             
-            // Filter and map the related articles
             let potentialOptions = relatedArticles
                 .map(article => article.title)
                 .filter(title => this.isGoodOption(title) && title !== this.correctAnswer);
@@ -93,9 +109,9 @@ class DeadDropGame {
             // Add the correct answer
             potentialOptions.push(this.correctAnswer);
             
-            // If we don't have enough options, add some clever fake options
+            // If we don't have enough options, add some clever fake options of the same category
             while (potentialOptions.length < 4) {
-                const fakeOption = this.generateFakeOption(this.correctAnswer);
+                const fakeOption = await this.generateFakeOptionOfCategory(category);
                 if (!potentialOptions.includes(fakeOption)) {
                     potentialOptions.push(fakeOption);
                 }
@@ -108,13 +124,52 @@ class DeadDropGame {
         }
     }
 
-    async getRelatedArticles(title) {
+    async determineCategory(title) {
+        try {
+            const response = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*`);
+            const data = await response.json();
+            const page = Object.values(data.query.pages)[0];
+            const categories = page.categories.map(cat => cat.title.replace('Category:', ''));
+            
+            if (categories.some(cat => cat.includes('person') || cat.includes('People'))) {
+                return 'person';
+            } else if (categories.some(cat => cat.includes('place') || cat.includes('Location'))) {
+                return 'place';
+            } else {
+                return 'thing';
+            }
+        } catch (error) {
+            console.error("Error determining category:", error);
+            return 'thing'; // Default category
+        }
+    }
+
+    async getRelatedArticles(title, category) {
         const encodedTitle = encodeURIComponent(title);
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=10`;
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}+incategory:${category}&format=json&origin=*&srlimit=10`;
         
         const response = await fetch(url);
         const data = await response.json();
         return data.query.search.filter(item => item.title !== title);
+    }
+
+    async generateFakeOptionOfCategory(category) {
+        const categoryToSearch = {
+            'person': 'People',
+            'place': 'Places',
+            'thing': 'Objects'
+        }[category] || 'Miscellaneous';
+
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json&origin=*&rncategory=${categoryToSearch}`;
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.query.random[0].title;
+        } catch (error) {
+            console.error("Error generating fake option:", error);
+            return this.generateFakeOption(this.correctAnswer);
+        }
     }
 
     isGoodOption(title) {
@@ -231,6 +286,13 @@ class DeadDropGame {
         if (loadingIndicator) {
             loadingIndicator.remove();
         }
+    }
+
+    handleLoadingError() {
+        this.hideLoadingIndicator();
+        this.showMessage('Error loading question. Please try again.');
+        this.optionsContainer.innerHTML = '<button class="option-button" id="retryButton">Retry</button>';
+        document.getElementById('retryButton').addEventListener('click', () => this.loadNewQuestion());
     }
 
     endGame(isWinner) {
