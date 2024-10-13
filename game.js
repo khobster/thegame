@@ -75,39 +75,47 @@ class DeadDropGame {
     async generateAnswerOptions(correctAnswer) {
         let options = [correctAnswer];
         
-        // Get one related article
+        // Get a pool of potential options
         const relatedArticles = await this.getRelatedArticles(correctAnswer);
-        if (relatedArticles.length > 0) {
-            options.push(relatedArticles[0].title);
-        }
-
-        // Fill the rest with random unrelated articles
-        let attempts = 0;
-        while (options.length < 4 && attempts < 10) {
-            const randomArticle = await this.getRandomArticle();
-            if (this.isGoodOption(randomArticle.title) && !options.includes(randomArticle.title) && randomArticle.title !== correctAnswer) {
-                options.push(randomArticle.title);
+        const randomArticles = await this.getMultipleRandomArticles(10);  // Get 10 random articles
+        
+        // Combine and shuffle all potential options
+        let potentialOptions = [...relatedArticles, ...randomArticles];
+        potentialOptions = this.shuffleArray(potentialOptions);
+        
+        // Select the most challenging options
+        for (let article of potentialOptions) {
+            if (options.length < 4 && this.isGoodOption(article.title) && !options.includes(article.title)) {
+                options.push(article.title);
             }
-            attempts++;
         }
 
-        // If we still don't have enough options, fill with generic options
+        // If we still don't have enough options, add some clever fake options
         while (options.length < 4) {
-            options.push(`Mystery Option ${options.length + 1}`);
+            options.push(this.generateFakeOption(correctAnswer));
         }
 
         return this.shuffleArray(options);
     }
 
+    async getMultipleRandomArticles(count) {
+        const articles = [];
+        for (let i = 0; i < count; i++) {
+            const article = await this.getRandomArticle();
+            articles.push(article);
+        }
+        return articles;
+    }
+
     async getRandomArticle() {
         const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
         const data = await response.json();
-        return data;
+        return { title: data.title, description: data.description };
     }
 
     async getRelatedArticles(title) {
         const encodedTitle = encodeURIComponent(title);
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=5`;
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=10`;
         
         const response = await fetch(url);
         const data = await response.json();
@@ -116,7 +124,24 @@ class DeadDropGame {
 
     isGoodOption(title) {
         const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:'];
-        return !badPrefixes.some(prefix => title.startsWith(prefix));
+        return !badPrefixes.some(prefix => title.startsWith(prefix)) && title.length < 50;
+    }
+
+    generateFakeOption(correctAnswer) {
+        const prefixes = ['The', 'A', 'An'];
+        const suffixes = ['Theory', 'Principle', 'Effect', 'Phenomenon', 'Paradox'];
+        const adjectives = ['Great', 'Hidden', 'Mysterious', 'Unexpected', 'Quantum'];
+        
+        const words = correctAnswer.split(' ').filter(word => word.length > 3);
+        if (words.length > 0) {
+            const word = words[Math.floor(Math.random() * words.length)];
+            const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+            const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+            const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+            return `${prefix} ${adjective} ${word} ${suffix}`;
+        } else {
+            return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+        }
     }
 
     shuffleArray(array) {
