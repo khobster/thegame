@@ -55,9 +55,6 @@ class DeadDropGame {
 
             this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
             document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
-
-            this.answerOptions = await this.generateAnswerOptions(article.title);
-            console.log("Generated options:", this.answerOptions); // Debug log
         } catch (error) {
             console.error('Error loading question:', error);
             this.loadNewQuestion(); // Try again
@@ -176,7 +173,7 @@ class DeadDropGame {
         return array;
     }
 
-    handleWager() {
+    async handleWager() {
         const wager = parseInt(this.wagerInput.value) || 0;
         if (wager <= 0 || wager > this.cash) {
             this.showMessage('Invalid wager amount!');
@@ -184,12 +181,24 @@ class DeadDropGame {
         }
         this.currentWager = wager;
         this.wagerInput.style.display = 'none';
-        this.showAnswerOptions();
+        
+        try {
+            this.answerOptions = await this.generateAnswerOptions(this.correctAnswer);
+            this.showAnswerOptions();
+        } catch (error) {
+            console.error('Error generating answer options:', error);
+            this.showMessage('Error loading options. Please try again.');
+            setTimeout(() => this.loadNewQuestion(), 2000);
+        }
     }
 
     showAnswerOptions() {
         this.optionsContainer.innerHTML = '';
         console.log("Showing options:", this.answerOptions); // Debug log
+        if (!this.answerOptions || this.answerOptions.length === 0) {
+            console.error("No answer options to display");
+            return;
+        }
         this.answerOptions.forEach(option => {
             const button = document.createElement('button');
             button.textContent = option;
