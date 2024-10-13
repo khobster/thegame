@@ -78,28 +78,47 @@ class DeadDropGame {
         
         try {
             const relatedArticles = await this.getRelatedArticles(correctAnswer);
-            const randomArticles = await this.getMultipleRandomArticles(5);  // Reduced to 5 for faster loading
+            const randomArticles = await this.getMultipleRandomArticles(5);
             
-            let potentialOptions = [...relatedArticles, ...randomArticles];
+            let potentialOptions = [...relatedArticles, ...randomArticles]
+                .map(article => article.title || article)
+                .filter(title => title !== correctAnswer && this.isGoodOption(title));
+            
             potentialOptions = this.shuffleArray(potentialOptions);
             
-            for (let article of potentialOptions) {
-                if (options.length < 4 && this.isGoodOption(article.title) && !options.includes(article.title)) {
-                    options.push(article.title);
+            // Add up to 3 more options
+            for (let i = 0; i < 3 && i < potentialOptions.length; i++) {
+                options.push(potentialOptions[i]);
+            }
+
+            // If we still don't have enough options, add some clever fake options
+            while (options.length < 4) {
+                const fakeOption = this.generateFakeOption(correctAnswer);
+                if (!options.includes(fakeOption)) {
+                    options.push(fakeOption);
                 }
             }
+
+            options = this.shuffleArray(options);
+            
+            console.log("Correct answer:", correctAnswer);
+            console.log("Generated options:", options);
+
+            return options;
         } catch (error) {
             console.error("Error generating options:", error);
+            return this.generateFallbackOptions(correctAnswer);
         }
+    }
 
-        // If we still don't have enough options, add some clever fake options
+    generateFallbackOptions(correctAnswer) {
+        let options = [correctAnswer];
         while (options.length < 4) {
             const fakeOption = this.generateFakeOption(correctAnswer);
             if (!options.includes(fakeOption)) {
                 options.push(fakeOption);
             }
         }
-
         return this.shuffleArray(options);
     }
 
@@ -181,6 +200,8 @@ class DeadDropGame {
     }
 
     handleGuess(userGuess) {
+        console.log("User guessed:", userGuess);
+        console.log("Correct answer:", this.correctAnswer);
         const isCorrect = userGuess === this.correctAnswer;
 
         if (isCorrect) {
