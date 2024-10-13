@@ -50,13 +50,14 @@ class DeadDropGame {
 
             this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
             this.wagerInput.style.display = 'block';
-            this.wagerInput.value = this.cash; // Set default wager to all current cash
-            this.wagerInput.max = this.cash; // Limit wager to current cash amount
+            this.wagerInput.value = this.cash;
+            this.wagerInput.max = this.cash;
 
             this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
             document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
 
             this.answerOptions = await this.generateAnswerOptions(article.title);
+            console.log("Generated options:", this.answerOptions); // Debug log
         } catch (error) {
             console.error('Error loading question:', error);
             this.loadNewQuestion(); // Try again
@@ -75,24 +76,28 @@ class DeadDropGame {
     async generateAnswerOptions(correctAnswer) {
         let options = [correctAnswer];
         
-        // Get a pool of potential options
-        const relatedArticles = await this.getRelatedArticles(correctAnswer);
-        const randomArticles = await this.getMultipleRandomArticles(10);  // Get 10 random articles
-        
-        // Combine and shuffle all potential options
-        let potentialOptions = [...relatedArticles, ...randomArticles];
-        potentialOptions = this.shuffleArray(potentialOptions);
-        
-        // Select the most challenging options
-        for (let article of potentialOptions) {
-            if (options.length < 4 && this.isGoodOption(article.title) && !options.includes(article.title)) {
-                options.push(article.title);
+        try {
+            const relatedArticles = await this.getRelatedArticles(correctAnswer);
+            const randomArticles = await this.getMultipleRandomArticles(5);  // Reduced to 5 for faster loading
+            
+            let potentialOptions = [...relatedArticles, ...randomArticles];
+            potentialOptions = this.shuffleArray(potentialOptions);
+            
+            for (let article of potentialOptions) {
+                if (options.length < 4 && this.isGoodOption(article.title) && !options.includes(article.title)) {
+                    options.push(article.title);
+                }
             }
+        } catch (error) {
+            console.error("Error generating options:", error);
         }
 
         // If we still don't have enough options, add some clever fake options
         while (options.length < 4) {
-            options.push(this.generateFakeOption(correctAnswer));
+            const fakeOption = this.generateFakeOption(correctAnswer);
+            if (!options.includes(fakeOption)) {
+                options.push(fakeOption);
+            }
         }
 
         return this.shuffleArray(options);
@@ -165,6 +170,7 @@ class DeadDropGame {
 
     showAnswerOptions() {
         this.optionsContainer.innerHTML = '';
+        console.log("Showing options:", this.answerOptions); // Debug log
         this.answerOptions.forEach(option => {
             const button = document.createElement('button');
             button.textContent = option;
