@@ -74,29 +74,49 @@ class DeadDropGame {
 
     async generateAnswerOptions(correctAnswer) {
         let options = [correctAnswer];
-        const relatedArticles = await this.getRelatedArticles(correctAnswer);
         
-        // Add up to 3 incorrect options
-        for (let i = 0; i < 3 && i < relatedArticles.length; i++) {
-            options.push(relatedArticles[i].title);
+        // Get one related article
+        const relatedArticles = await this.getRelatedArticles(correctAnswer);
+        if (relatedArticles.length > 0) {
+            options.push(relatedArticles[0].title);
         }
 
-        // If we don't have enough options, add some random ones
+        // Fill the rest with random unrelated articles
+        let attempts = 0;
+        while (options.length < 4 && attempts < 10) {
+            const randomArticle = await this.getRandomArticle();
+            if (this.isGoodOption(randomArticle.title) && !options.includes(randomArticle.title) && randomArticle.title !== correctAnswer) {
+                options.push(randomArticle.title);
+            }
+            attempts++;
+        }
+
+        // If we still don't have enough options, fill with generic options
         while (options.length < 4) {
-            const randomArticle = await this.getRandomArticleWithImage();
-            options.push(randomArticle.title);
+            options.push(`Mystery Option ${options.length + 1}`);
         }
 
         return this.shuffleArray(options);
     }
 
+    async getRandomArticle() {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const data = await response.json();
+        return data;
+    }
+
     async getRelatedArticles(title) {
         const encodedTitle = encodeURIComponent(title);
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=10`;
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedTitle}&format=json&origin=*&srlimit=5`;
         
         const response = await fetch(url);
         const data = await response.json();
         return data.query.search.filter(item => item.title !== title);
+    }
+
+    isGoodOption(title) {
+        const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:'];
+        return !badPrefixes.some(prefix => title.startsWith(prefix));
     }
 
     shuffleArray(array) {
