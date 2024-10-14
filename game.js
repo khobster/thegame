@@ -44,7 +44,7 @@ class DeadDropGame {
             .then(article => {
                 this.correctAnswer = article;
                 console.log("Correct answer:", article.title);
-                console.log("Categories:", article.categories);
+                console.log("Extract:", article.extract);
                 const img = document.createElement('img');
                 img.src = article.thumbnail.source;
                 this.imageContainer.innerHTML = '';
@@ -76,11 +76,8 @@ class DeadDropGame {
             try {
                 const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
                 const data = await response.json();
-                if (data.thumbnail && data.thumbnail.source) {
-                    const categories = await this.getArticleCategories(data.title);
-                    if (categories.length > 0) {
-                        return { ...data, categories };
-                    }
+                if (data.thumbnail && data.thumbnail.source && data.extract && data.extract.length > 50) {
+                    return data;
                 }
             } catch (error) {
                 console.error('Error fetching random article:', error);
@@ -89,28 +86,35 @@ class DeadDropGame {
         throw new Error('Unable to find a suitable article with an image after multiple attempts');
     }
 
-    async getArticleCategories(title) {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*&cllimit=50`;
+    async getRelatedArticles(extract, count = 3) {
+        const words = extract.split(/\s+/).filter(word => word.length > 4);
+        const searchTerm = words.slice(0, 3).join(' ');
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=${count + 1}`;
+        
         try {
             const response = await fetch(url);
             const data = await response.json();
-            const page = Object.values(data.query.pages)[0];
-            return page.categories ? page.categories.map(cat => cat.title.replace('Category:', '')) : [];
+            return data.query.search
+                .map(item => item.title)
+                .filter(title => title !== this.correctAnswer.title)
+                .slice(0, count);
         } catch (error) {
-            console.error("Error fetching categories:", error);
+            console.error("Error fetching related articles:", error);
             return [];
         }
     }
 
     async generateAnswerOptions() {
         try {
-            const mainCategory = this.selectMainCategory(this.correctAnswer.categories);
             let options = [this.cleanTitle(this.correctAnswer.title)];
+            const relatedArticles = await this.getRelatedArticles(this.correctAnswer.extract);
+            
+            options = [...options, ...relatedArticles.map(this.cleanTitle)];
 
             while (options.length < 4) {
-                const newOption = await this.getRandomArticleFromCategory(mainCategory);
-                if (newOption && !options.includes(newOption) && this.isGoodOption(newOption)) {
-                    options.push(newOption);
+                const fakeOption = this.generateFakeOption(this.correctAnswer.title);
+                if (!options.includes(fakeOption)) {
+                    options.push(fakeOption);
                 }
             }
 
@@ -119,31 +123,6 @@ class DeadDropGame {
             console.error("Error generating options:", error);
             return this.generateFallbackOptions(this.correctAnswer.title);
         }
-    }
-
-    selectMainCategory(categories) {
-        const preferredCategories = ['birth', 'people', 'person', 'city', 'country', 'place', 'landmark', 'animal', 'plant', 'species'];
-        for (let preferred of preferredCategories) {
-            const match = categories.find(cat => cat.toLowerCase().includes(preferred));
-            if (match) return match;
-        }
-        return categories[0]; // fallback to first category if no preferred category is found
-    }
-
-    async getRandomArticleFromCategory(category) {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(category)}&cmlimit=20&format=json&origin=*`;
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            const pages = data.query.categorymembers;
-            if (pages.length > 0) {
-                const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                return this.cleanTitle(randomPage.title);
-            }
-        } catch (error) {
-            console.error("Error fetching article from category:", error);
-        }
-        return null;
     }
 
     cleanTitle(title) {
@@ -158,9 +137,11 @@ class DeadDropGame {
         const cleanTitle = this.cleanTitle(title);
         const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:', 'Wikipedia'];
         return !badPrefixes.some(prefix => cleanTitle.startsWith(prefix)) && 
+               cleanTitle.length > 3 &&
                cleanTitle.length < 50 && 
                cleanTitle.toLowerCase() !== 'wikipedia' &&
-               !cleanTitle.includes('Wikipedia');
+               !cleanTitle.includes('Wikipedia') &&
+               !/^\d+$/.test(cleanTitle); // Exclude options that are just numbers
     }
 
     generateFakeOption(correctAnswer) {
