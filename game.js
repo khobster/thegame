@@ -138,7 +138,8 @@ class DeadDropGame {
             const pages = data.query.categorymembers;
             if (pages.length > 0) {
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                return randomPage.title;
+                // Clean the title by removing leading special characters
+                return randomPage.title.replace(/^[-*]+/, '').trim();
             }
         } catch (error) {
             console.error("Error fetching article from category:", error);
@@ -147,11 +148,12 @@ class DeadDropGame {
     }
 
     isGoodOption(title) {
+        const cleanTitle = title.replace(/^[-*]+/, '').trim();
         const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:', 'Wikipedia'];
-        return !badPrefixes.some(prefix => title.startsWith(prefix)) && 
-               title.length < 50 && 
-               title.toLowerCase() !== 'wikipedia' &&
-               !title.includes('Wikipedia');
+        return !badPrefixes.some(prefix => cleanTitle.startsWith(prefix)) && 
+               cleanTitle.length < 50 && 
+               cleanTitle.toLowerCase() !== 'wikipedia' &&
+               !cleanTitle.includes('Wikipedia');
     }
 
     generateFakeOption(correctAnswer) {
