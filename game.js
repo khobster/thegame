@@ -5,7 +5,7 @@ class DeadDropGame {
         this.currentQuestion = 0;
         this.currentWager = 0;
         this.answerOptions = [];
-        this.correctAnswer = '';
+        this.correctAnswer = null;
         this.gamePhase = 'title';
 
         this.imageContainer = document.getElementById('imageContainer');
@@ -35,19 +35,14 @@ class DeadDropGame {
         this.loadNewQuestion();
     }
 
-    async loadNewQuestion() {
+    loadNewQuestion() {
         this.currentQuestion++;
         this.gamePhase = 'loading';
         this.showLoadingIndicator();
 
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (retryCount < maxRetries) {
-            try {
-                const article = await this.getRandomArticleWithImage();
-                this.correctAnswer = article.title;
-
+        this.getRandomArticleWithImage()
+            .then(article => {
+                this.correctAnswer = article;
                 const img = document.createElement('img');
                 img.src = article.thumbnail.source;
                 this.imageContainer.innerHTML = '';
@@ -61,33 +56,28 @@ class DeadDropGame {
                 this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
                 document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
 
-                this.answerOptions = await this.generateAnswerOptions();
-
+                return this.generateAnswerOptions();
+            })
+            .then(options => {
+                this.answerOptions = options;
                 this.hideLoadingIndicator();
                 this.gamePhase = 'wager';
-                return; // Successfully loaded new question, exit the function
-            } catch (error) {
+            })
+            .catch(error => {
                 console.error('Error loading question:', error);
-                retryCount++;
-                if (retryCount >= maxRetries) {
-                    this.handleLoadingError();
-                    return;
-                }
-                // Wait for a short time before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
+                this.handleLoadingError();
+            });
     }
 
-    async getRandomArticleWithImage(maxAttempts = 5) {
+    async getRandomArticleWithImage(maxAttempts = 10) {
         for (let i = 0; i < maxAttempts; i++) {
             try {
                 const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
                 const data = await response.json();
                 if (data.thumbnail && data.thumbnail.source) {
                     const category = await this.determineCategory(data.title);
-                    if (category !== 'thing') {  // Only accept person or place for more interesting questions
-                        return data;
+                    if (category !== 'unknown') {
+                        return { ...data, category };
                     }
                 }
             } catch (error) {
@@ -95,45 +85,6 @@ class DeadDropGame {
             }
         }
         throw new Error('Unable to find a suitable article with an image after multiple attempts');
-    }
-
-    async generateAnswerOptions() {
-        try {
-            const category = await this.determineCategory(this.correctAnswer);
-            let options = [this.correctAnswer];
-
-            // Generate additional options of the same category
-            while (options.length < 4) {
-                const newOption = await this.generateOptionOfCategory(category);
-                if (newOption && !options.includes(newOption) && this.isGoodOption(newOption)) {
-                    options.push(newOption);
-                }
-            }
-
-            return this.shuffleArray(options);
-        } catch (error) {
-            console.error("Error generating options:", error);
-            return this.generateFallbackOptions(this.correctAnswer);
-        }
-    }
-
-    async generateOptionOfCategory(category) {
-        const categoryToSearch = {
-            'person': 'Living_people',
-            'place': 'Cities_in_the_world',
-            'thing': 'Objects'
-        }[category] || 'Miscellaneous';
-
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json&origin=*&rncategory=${categoryToSearch}`;
-        
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            return data.query.random[0].title;
-        } catch (error) {
-            console.error("Error generating option of category:", error);
-            return null;
-        }
     }
 
     async determineCategory(title) {
@@ -145,14 +96,57 @@ class DeadDropGame {
             
             if (categories.some(cat => cat.includes('Living_people') || cat.includes('births'))) {
                 return 'person';
-            } else if (categories.some(cat => cat.includes('Cities_') || cat.includes('Countries_'))) {
+            } else if (categories.some(cat => cat.includes('Cities_') || cat.includes('Countries_') || cat.includes('Places_'))) {
                 return 'place';
-            } else {
-                return 'thing';
+            } else if (categories.some(cat => cat.includes('Objects_') || cat.includes('Products_'))) {
+                return 'object';
+            } else if (categories.some(cat => cat.includes('Concepts_') || cat.includes('Theories_'))) {
+                return 'concept';
             }
+            return 'unknown';
         } catch (error) {
             console.error("Error determining category:", error);
-            return 'thing'; // Default category
+            return 'unknown';
+        }
+    }
+
+    async generateAnswerOptions() {
+        try {
+            const category = this.correctAnswer.category;
+            let options = [this.correctAnswer.title];
+
+            while (options.length < 4) {
+                const newOption = await this.getRandomArticleOfCategory(category);
+                if (newOption && !options.includes(newOption) && this.isGoodOption(newOption)) {
+                    options.push(newOption);
+                }
+            }
+
+            return this.shuffleArray(options);
+        } catch (error) {
+            console.error("Error generating options:", error);
+            return this.generateFallbackOptions(this.correctAnswer.title);
+        }
+    }
+
+    async getRandomArticleOfCategory(category) {
+        const categoryMap = {
+            'person': 'Living_people',
+            'place': 'Cities_in_the_world',
+            'object': 'Objects',
+            'concept': 'Concepts'
+        };
+        const categoryToSearch = categoryMap[category] || 'Miscellaneous';
+
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json&origin=*&rncategory=${categoryToSearch}`;
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.query.random[0].title;
+        } catch (error) {
+            console.error("Error generating option of category:", error);
+            return null;
         }
     }
 
@@ -167,7 +161,6 @@ class DeadDropGame {
     generateFakeOption(correctAnswer) {
         const words = correctAnswer.split(' ').filter(word => word.length > 3);
         if (words.length > 1) {
-            // Swap two words in the correct answer
             const index1 = Math.floor(Math.random() * words.length);
             let index2 = Math.floor(Math.random() * words.length);
             while (index2 === index1) {
@@ -176,7 +169,6 @@ class DeadDropGame {
             [words[index1], words[index2]] = [words[index2], words[index1]];
             return words.join(' ');
         } else {
-            // If the title is too short, generate a completely new fake option
             const fakeWords = ['The', 'A', 'An', 'Great', 'Hidden', 'Mysterious', 'Unexpected', 'Secret'];
             return fakeWords[Math.floor(Math.random() * fakeWords.length)] + ' ' + correctAnswer;
         }
@@ -212,7 +204,7 @@ class DeadDropGame {
 
     showAnswerOptions() {
         this.optionsContainer.innerHTML = '';
-        console.log("Showing options:", this.answerOptions); // Debug log
+        console.log("Showing options:", this.answerOptions);
         this.answerOptions.forEach(option => {
             const button = document.createElement('button');
             button.textContent = option;
@@ -224,8 +216,8 @@ class DeadDropGame {
 
     handleGuess(userGuess) {
         console.log("User guessed:", userGuess);
-        console.log("Correct answer:", this.correctAnswer);
-        const isCorrect = userGuess === this.correctAnswer;
+        console.log("Correct answer:", this.correctAnswer.title);
+        const isCorrect = userGuess === this.correctAnswer.title;
 
         if (isCorrect) {
             this.cash += this.currentWager;
