@@ -105,7 +105,7 @@ class DeadDropGame {
     async generateAnswerOptions() {
         try {
             const mainCategory = this.selectMainCategory(this.correctAnswer.categories);
-            let options = [this.correctAnswer.title];
+            let options = [this.cleanTitle(this.correctAnswer.title)];
 
             while (options.length < 4) {
                 const newOption = await this.getRandomArticleFromCategory(mainCategory);
@@ -138,8 +138,7 @@ class DeadDropGame {
             const pages = data.query.categorymembers;
             if (pages.length > 0) {
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                // Clean the title by removing leading special characters
-                return randomPage.title.replace(/^[-*]+/, '').trim();
+                return this.cleanTitle(randomPage.title);
             }
         } catch (error) {
             console.error("Error fetching article from category:", error);
@@ -147,8 +146,16 @@ class DeadDropGame {
         return null;
     }
 
+    cleanTitle(title) {
+        // Remove leading special characters and spaces
+        let cleanedTitle = title.replace(/^[-–—*.(),\s]+/, '');
+        // Remove trailing parentheses and any spaces before them
+        cleanedTitle = cleanedTitle.replace(/\s*\([^)]*\)\s*$/, '');
+        return cleanedTitle.trim();
+    }
+
     isGoodOption(title) {
-        const cleanTitle = title.replace(/^[-*]+/, '').trim();
+        const cleanTitle = this.cleanTitle(title);
         const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:', 'Wikipedia'];
         return !badPrefixes.some(prefix => cleanTitle.startsWith(prefix)) && 
                cleanTitle.length < 50 && 
@@ -214,8 +221,9 @@ class DeadDropGame {
 
     handleGuess(userGuess) {
         console.log("User guessed:", userGuess);
-        console.log("Correct answer:", this.correctAnswer.title);
-        const isCorrect = userGuess === this.correctAnswer.title;
+        const cleanedCorrectAnswer = this.cleanTitle(this.correctAnswer.title);
+        console.log("Correct answer:", cleanedCorrectAnswer);
+        const isCorrect = userGuess === cleanedCorrectAnswer;
 
         if (isCorrect) {
             this.cash += this.currentWager;
