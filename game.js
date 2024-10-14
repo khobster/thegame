@@ -43,6 +43,8 @@ class DeadDropGame {
         this.getRandomArticleWithImage()
             .then(article => {
                 this.correctAnswer = article;
+                console.log("Correct answer:", article.title);
+                console.log("Categories:", article.categories);
                 const img = document.createElement('img');
                 img.src = article.thumbnail.source;
                 this.imageContainer.innerHTML = '';
@@ -75,9 +77,9 @@ class DeadDropGame {
                 const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
                 const data = await response.json();
                 if (data.thumbnail && data.thumbnail.source) {
-                    const category = await this.determineCategory(data.title);
-                    if (category !== 'unknown') {
-                        return { ...data, category };
+                    const categories = await this.getArticleCategories(data.title);
+                    if (categories.length > 0) {
+                        return { ...data, categories };
                     }
                 }
             } catch (error) {
@@ -87,36 +89,26 @@ class DeadDropGame {
         throw new Error('Unable to find a suitable article with an image after multiple attempts');
     }
 
-    async determineCategory(title) {
+    async getArticleCategories(title) {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*&cllimit=50`;
         try {
-            const response = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*`);
+            const response = await fetch(url);
             const data = await response.json();
             const page = Object.values(data.query.pages)[0];
-            const categories = page.categories.map(cat => cat.title.replace('Category:', ''));
-            
-            if (categories.some(cat => cat.includes('Living_people') || cat.includes('births'))) {
-                return 'person';
-            } else if (categories.some(cat => cat.includes('Cities_') || cat.includes('Countries_') || cat.includes('Places_'))) {
-                return 'place';
-            } else if (categories.some(cat => cat.includes('Objects_') || cat.includes('Products_'))) {
-                return 'object';
-            } else if (categories.some(cat => cat.includes('Concepts_') || cat.includes('Theories_'))) {
-                return 'concept';
-            }
-            return 'unknown';
+            return page.categories ? page.categories.map(cat => cat.title.replace('Category:', '')) : [];
         } catch (error) {
-            console.error("Error determining category:", error);
-            return 'unknown';
+            console.error("Error fetching categories:", error);
+            return [];
         }
     }
 
     async generateAnswerOptions() {
         try {
-            const category = this.correctAnswer.category;
+            const mainCategory = this.selectMainCategory(this.correctAnswer.categories);
             let options = [this.correctAnswer.title];
 
             while (options.length < 4) {
-                const newOption = await this.getRandomArticleOfCategory(category);
+                const newOption = await this.getRandomArticleFromCategory(mainCategory);
                 if (newOption && !options.includes(newOption) && this.isGoodOption(newOption)) {
                     options.push(newOption);
                 }
@@ -129,25 +121,29 @@ class DeadDropGame {
         }
     }
 
-    async getRandomArticleOfCategory(category) {
-        const categoryMap = {
-            'person': 'Living_people',
-            'place': 'Cities_in_the_world',
-            'object': 'Objects',
-            'concept': 'Concepts'
-        };
-        const categoryToSearch = categoryMap[category] || 'Miscellaneous';
+    selectMainCategory(categories) {
+        const preferredCategories = ['birth', 'people', 'person', 'city', 'country', 'place', 'landmark', 'animal', 'plant', 'species'];
+        for (let preferred of preferredCategories) {
+            const match = categories.find(cat => cat.toLowerCase().includes(preferred));
+            if (match) return match;
+        }
+        return categories[0]; // fallback to first category if no preferred category is found
+    }
 
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json&origin=*&rncategory=${categoryToSearch}`;
-        
+    async getRandomArticleFromCategory(category) {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(category)}&cmlimit=20&format=json&origin=*`;
         try {
             const response = await fetch(url);
             const data = await response.json();
-            return data.query.random[0].title;
+            const pages = data.query.categorymembers;
+            if (pages.length > 0) {
+                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                return randomPage.title;
+            }
         } catch (error) {
-            console.error("Error generating option of category:", error);
-            return null;
+            console.error("Error fetching article from category:", error);
         }
+        return null;
     }
 
     isGoodOption(title) {
