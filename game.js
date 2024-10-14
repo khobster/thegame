@@ -86,7 +86,7 @@ class DeadDropGame {
         throw new Error('Unable to find a suitable article with an image after multiple attempts');
     }
 
-    async getRelatedArticles(extract, count = 3) {
+    async getRelatedArticles(extract, count = 5) {
         const words = extract.split(/\s+/).filter(word => word.length > 4);
         const searchTerm = words.slice(0, 3).join(' ');
         const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=${count + 1}`;
@@ -109,11 +109,19 @@ class DeadDropGame {
             let options = [this.cleanTitle(this.correctAnswer.title)];
             const relatedArticles = await this.getRelatedArticles(this.correctAnswer.extract);
             
-            options = [...options, ...relatedArticles.map(this.cleanTitle)];
+            // Add related articles, ensuring they're sufficiently different
+            for (let article of relatedArticles) {
+                const cleanedArticle = this.cleanTitle(article);
+                if (this.isDistinctOption(cleanedArticle, options)) {
+                    options.push(cleanedArticle);
+                }
+                if (options.length >= 4) break;
+            }
 
+            // If we still need more options, generate fake ones
             while (options.length < 4) {
                 const fakeOption = this.generateFakeOption(this.correctAnswer.title);
-                if (!options.includes(fakeOption)) {
+                if (this.isDistinctOption(fakeOption, options)) {
                     options.push(fakeOption);
                 }
             }
@@ -123,6 +131,47 @@ class DeadDropGame {
             console.error("Error generating options:", error);
             return this.generateFallbackOptions(this.correctAnswer.title);
         }
+    }
+
+    isDistinctOption(newOption, existingOptions) {
+        return !existingOptions.some(option => 
+            this.calculateSimilarity(newOption, option) > 0.7
+        );
+    }
+
+    calculateSimilarity(str1, str2) {
+        const longer = str1.length > str2.length ? str1 : str2;
+        const shorter = str1.length > str2.length ? str2 : str1;
+        const longerLength = longer.length;
+        if (longerLength === 0) {
+            return 1.0;
+        }
+        return (longerLength - this.editDistance(longer, shorter)) / parseFloat(longerLength);
+    }
+
+    editDistance(s1, s2) {
+        s1 = s1.toLowerCase();
+        s2 = s2.toLowerCase();
+        const costs = new Array();
+        for (let i = 0; i <= s1.length; i++) {
+            let lastValue = i;
+            for (let j = 0; j <= s2.length; j++) {
+                if (i == 0)
+                    costs[j] = j;
+                else {
+                    if (j > 0) {
+                        let newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+            }
+            if (i > 0)
+                costs[s2.length] = lastValue;
+        }
+        return costs[s2.length];
     }
 
     cleanTitle(title) {
