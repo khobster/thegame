@@ -138,17 +138,20 @@ class DeadDropGame {
                 <button id="prevButton" class="nav-button">←</button>
                 <button id="nextButton" class="nav-button">→</button>
             </div>
+            <button id="selectImageButton" class="button">Select This Image</button>
             <div>
-                <input type="number" id="wagerInput" placeholder="Enter wager" min="1" max="${this.cash}">
+                <input type="number" id="wagerInput" placeholder="Enter wager" min="1" max="${this.cash}" value="${this.cash}">
                 <button id="placeWagerButton" class="button">Place Wager</button>
             </div>
-            <button id="selectImageButton" class="button">Select This Image</button>
         `;
 
         document.getElementById('prevButton').addEventListener('click', () => this.navigateImages(-1));
         document.getElementById('nextButton').addEventListener('click', () => this.navigateImages(1));
-        document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
         document.getElementById('selectImageButton').addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
+        document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+
+        // Set default wager to full amount
+        this.currentWager = this.cash;
 
         this.hideLoadingIndicator();
     }
@@ -168,11 +171,12 @@ class DeadDropGame {
         this.currentWager = wager;
         wagerInput.disabled = true;
         document.getElementById('placeWagerButton').disabled = true;
+        this.showMessage(`Wager placed: $${this.currentWager.toLocaleString()}`);
     }
 
     handleGuess(guessedArticle) {
-        if (this.currentWager === 0) {
-            this.showMessage('Please place a wager first!');
+        if (document.getElementById('placeWagerButton').disabled === false) {
+            this.showMessage('Please confirm your wager first!');
             return;
         }
 
