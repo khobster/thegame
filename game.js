@@ -1,7 +1,7 @@
 class DeadDropGame {
     constructor() {
         this.cash = 1000;
-        this.targetAmount = 1000000; // $1 million
+        this.targetAmount = 1000000;
         this.currentQuestion = 0;
         this.currentWager = 0;
         this.correctAnswer = null;
@@ -9,10 +9,7 @@ class DeadDropGame {
         this.currentImageIndex = 0;
         this.imageOptions = [];
 
-        this.imageContainer = document.getElementById('imageContainer');
-        this.cashDisplay = document.getElementById('cashDisplay');
-        this.optionsContainer = document.getElementById('optionsContainer');
-
+        this.gameContainer = document.getElementById('gameContainer');
         this.addStyles();
         this.showTitleScreen();
     }
@@ -24,60 +21,87 @@ class DeadDropGame {
                 background-color: #1a1a1a;
                 color: white;
                 display: flex;
-                flex-direction: column;
-                align-items: center;
                 justify-content: center;
+                align-items: center;
                 height: 100vh;
                 margin: 0;
-                padding: 20px;
-                box-sizing: border-box;
             }
-
-            #imageContainer {
-                text-align: center;
-                margin-bottom: 10px;
-            }
-
-            #imageContainer h2 {
-                font-size: 20px;
-                margin-bottom: 10px;
-            }
-
-            #cashDisplay {
-                font-size: 18px;
-                margin-bottom: 10px;
-            }
-
-            #optionsContainer {
-                width: 80%;
+            #gameContainer {
+                width: 100%;
                 max-width: 600px;
+                text-align: center;
             }
-
-            .option-image {
-                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            h1 {
+                font-size: 48px;
+                margin-bottom: 20px;
             }
-
-            #navigationControls button:hover {
+            h2 {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+            .button {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 15px 32px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+                margin: 4px 2px;
+                cursor: pointer;
+                border-radius: 5px;
+            }
+            #cashDisplay {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+            #wagerInput {
+                font-size: 18px;
+                padding: 10px;
+                width: 100px;
+                margin-right: 10px;
+            }
+            .image-container {
+                position: relative;
+                width: 100%;
+                height: 300px;
+                margin-bottom: 20px;
+            }
+            .image-container img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+            }
+            .nav-button {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                background-color: rgba(76, 175, 80, 0.5);
+                color: white;
+                border: none;
+                padding: 10px;
+                cursor: pointer;
+                font-size: 24px;
+                border-radius: 50%;
+            }
+            .nav-button:hover {
                 background-color: rgba(76, 175, 80, 0.8);
             }
-
-            #wagerInput {
-                font-size: 16px;
+            #prevButton {
+                left: 10px;
             }
-
-            #placeWagerButton {
-                font-size: 16px;
+            #nextButton {
+                right: 10px;
             }
         `;
         document.head.appendChild(document.createElement('style')).textContent = styles;
     }
 
     showTitleScreen() {
-        this.gamePhase = 'title';
-        this.imageContainer.innerHTML = '<h1>Dead Drop</h1>';
-        this.cashDisplay.textContent = '';
-        this.optionsContainer.innerHTML = `
-            <button class="option-button" id="startButton">Start Game</button>
+        this.gameContainer.innerHTML = `
+            <h1>Dead Drop</h1>
+            <button id="startButton" class="button">Start Game</button>
             <p>the double down game.</p>
             <p>hit a million to win.</p>
         `;
@@ -92,143 +116,46 @@ class DeadDropGame {
 
     async loadNewQuestion() {
         this.currentQuestion++;
-        this.gamePhase = 'loading';
         this.showLoadingIndicator();
 
         try {
             this.imageOptions = await this.getRandomArticles(5);
             this.correctAnswer = this.imageOptions[Math.floor(Math.random() * this.imageOptions.length)];
             this.currentImageIndex = 0;
-
-            this.displayQuestionTitle(this.correctAnswer.title);
-            this.setupImageContainer();
-            this.displayCurrentImage();
-            this.displayNavigationControls();
-            this.displayWagerInput();
-
-            this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
-
-            this.hideLoadingIndicator();
-            this.gamePhase = 'wager';
+            this.displayGameScreen();
         } catch (error) {
             console.error('Error loading question:', error);
             this.handleLoadingError();
         }
     }
 
-    async getRandomArticles(count) {
-        const articles = [];
-        for (let i = 0; i < count; i++) {
-            const article = await this.getRandomArticle();
-            if (article.thumbnail && article.thumbnail.source) {
-                articles.push(article);
-            } else {
-                i--; // Try again if no image
-            }
-        }
-        return articles;
-    }
+    displayGameScreen() {
+        this.gameContainer.innerHTML = `
+            <h2>"${this.correctAnswer.title}"</h2>
+            <div id="cashDisplay">Cash: $${this.cash.toLocaleString()}</div>
+            <div class="image-container">
+                <img id="currentImage" src="${this.imageOptions[this.currentImageIndex].thumbnail.source}" alt="Wikipedia Image">
+                <button id="prevButton" class="nav-button">←</button>
+                <button id="nextButton" class="nav-button">→</button>
+            </div>
+            <div>
+                <input type="number" id="wagerInput" placeholder="Enter wager" min="1" max="${this.cash}">
+                <button id="placeWagerButton" class="button">Place Wager</button>
+            </div>
+            <button id="selectImageButton" class="button">Select This Image</button>
+        `;
 
-    async getRandomArticle() {
-        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-        return await response.json();
-    }
+        document.getElementById('prevButton').addEventListener('click', () => this.navigateImages(-1));
+        document.getElementById('nextButton').addEventListener('click', () => this.navigateImages(1));
+        document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+        document.getElementById('selectImageButton').addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
 
-    displayQuestionTitle(title) {
-        this.imageContainer.innerHTML = `<h2>"${title}"</h2>`;
-    }
-
-    setupImageContainer() {
-        this.optionsContainer.innerHTML = '';
-        const imageElement = document.createElement('img');
-        imageElement.id = 'currentImage';
-        imageElement.className = 'option-image';
-        imageElement.style.width = '100%';
-        imageElement.style.height = '50vh';
-        imageElement.style.objectFit = 'contain';
-        imageElement.style.borderRadius = '10px';
-        this.optionsContainer.appendChild(imageElement);
-    }
-
-    displayCurrentImage() {
-        const article = this.imageOptions[this.currentImageIndex];
-        const imageElement = document.getElementById('currentImage');
-        imageElement.src = article.thumbnail.source;
-        imageElement.alt = article.title;
-    }
-
-    displayNavigationControls() {
-        const navigationDiv = document.createElement('div');
-        navigationDiv.id = 'navigationControls';
-        navigationDiv.style.display = 'flex';
-        navigationDiv.style.justifyContent = 'space-between';
-        navigationDiv.style.alignItems = 'center';
-        navigationDiv.style.marginTop = '10px';
-
-        const prevButton = this.createNavButton('←', () => this.navigateImages(-1));
-        const nextButton = this.createNavButton('→', () => this.navigateImages(1));
-        const selectButton = this.createButton('Select This Image', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
-
-        navigationDiv.appendChild(prevButton);
-        navigationDiv.appendChild(selectButton);
-        navigationDiv.appendChild(nextButton);
-
-        this.optionsContainer.appendChild(navigationDiv);
-    }
-
-    createNavButton(text, onClick) {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.addEventListener('click', onClick);
-        button.style.padding = '5px 10px';
-        button.style.fontSize = '20px';
-        button.style.borderRadius = '50%';
-        button.style.border = 'none';
-        button.style.backgroundColor = 'rgba(76, 175, 80, 0.5)';
-        button.style.color = 'white';
-        button.style.cursor = 'pointer';
-        return button;
-    }
-
-    createButton(text, onClick) {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.addEventListener('click', onClick);
-        button.style.padding = '10px 20px';
-        button.style.fontSize = '16px';
-        button.style.borderRadius = '5px';
-        button.style.border = 'none';
-        button.style.backgroundColor = '#4CAF50';
-        button.style.color = 'white';
-        button.style.cursor = 'pointer';
-        return button;
-    }
-
-    displayWagerInput() {
-        const wagerDiv = document.createElement('div');
-        wagerDiv.style.marginTop = '10px';
-        wagerDiv.style.display = 'flex';
-        wagerDiv.style.justifyContent = 'center';
-        wagerDiv.style.alignItems = 'center';
-
-        const wagerInput = document.createElement('input');
-        wagerInput.type = 'number';
-        wagerInput.id = 'wagerInput';
-        wagerInput.style.marginRight = '10px';
-        wagerInput.style.padding = '5px';
-        wagerInput.style.width = '100px';
-
-        const wagerButton = this.createButton('Place Wager', () => this.handleWager());
-        wagerButton.id = 'placeWagerButton';
-
-        wagerDiv.appendChild(wagerInput);
-        wagerDiv.appendChild(wagerButton);
-        this.optionsContainer.appendChild(wagerDiv);
+        this.hideLoadingIndicator();
     }
 
     navigateImages(direction) {
         this.currentImageIndex = (this.currentImageIndex + direction + this.imageOptions.length) % this.imageOptions.length;
-        this.displayCurrentImage();
+        document.getElementById('currentImage').src = this.imageOptions[this.currentImageIndex].thumbnail.source;
     }
 
     handleWager() {
@@ -239,12 +166,16 @@ class DeadDropGame {
             return;
         }
         this.currentWager = wager;
-        wagerInput.style.display = 'none';
-        document.getElementById('placeWagerButton').style.display = 'none';
-        this.gamePhase = 'guessing';
+        wagerInput.disabled = true;
+        document.getElementById('placeWagerButton').disabled = true;
     }
 
     handleGuess(guessedArticle) {
+        if (this.currentWager === 0) {
+            this.showMessage('Please place a wager first!');
+            return;
+        }
+
         const isCorrect = guessedArticle.pageid === this.correctAnswer.pageid;
 
         if (isCorrect) {
@@ -267,21 +198,22 @@ class DeadDropGame {
         }
     }
 
-    showMessage(message) {
-        const messageBox = document.createElement('div');
-        messageBox.id = 'messageBox';
-        messageBox.textContent = message;
-        messageBox.style.position = 'fixed';
-        messageBox.style.top = '50%';
-        messageBox.style.left = '50%';
-        messageBox.style.transform = 'translate(-50%, -50%)';
-        messageBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        messageBox.style.color = 'white';
-        messageBox.style.padding = '20px';
-        messageBox.style.borderRadius = '10px';
-        messageBox.style.zIndex = '1000';
-        document.body.appendChild(messageBox);
-        setTimeout(() => messageBox.remove(), 2000);
+    async getRandomArticles(count) {
+        const articles = [];
+        for (let i = 0; i < count; i++) {
+            const article = await this.getRandomArticle();
+            if (article.thumbnail && article.thumbnail.source) {
+                articles.push(article);
+            } else {
+                i--; // Try again if no image
+            }
+        }
+        return articles;
+    }
+
+    async getRandomArticle() {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        return await response.json();
     }
 
     showLoadingIndicator() {
@@ -296,7 +228,7 @@ class DeadDropGame {
         loadingIndicator.style.background = 'rgba(0, 0, 0, 0.7)';
         loadingIndicator.style.color = 'white';
         loadingIndicator.style.borderRadius = '5px';
-        document.body.appendChild(loadingIndicator);
+        this.gameContainer.appendChild(loadingIndicator);
     }
 
     hideLoadingIndicator() {
@@ -309,7 +241,7 @@ class DeadDropGame {
     handleLoadingError() {
         this.hideLoadingIndicator();
         this.showMessage('Error loading question. Please try again.');
-        this.optionsContainer.innerHTML = '<button class="option-button" id="retryButton">Retry</button>';
+        this.gameContainer.innerHTML = '<button class="button" id="retryButton">Retry</button>';
         document.getElementById('retryButton').addEventListener('click', () => this.loadNewQuestion());
     }
 
@@ -323,8 +255,22 @@ class DeadDropGame {
             this.showTitleScreen();
         }, 3000);
     }
+
+    showMessage(message) {
+        const messageBox = document.createElement('div');
+        messageBox.textContent = message;
+        messageBox.style.position = 'fixed';
+        messageBox.style.top = '50%';
+        messageBox.style.left = '50%';
+        messageBox.style.transform = 'translate(-50%, -50%)';
+        messageBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        messageBox.style.color = 'white';
+        messageBox.style.padding = '20px';
+        messageBox.style.borderRadius = '10px';
+        messageBox.style.zIndex = '1000';
+        document.body.appendChild(messageBox);
+        setTimeout(() => messageBox.remove(), 2000);
+    }
 }
 
-window.onload = () => {
-    new DeadDropGame();
-};
+window.onload = () => new DeadDropGame();
