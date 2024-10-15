@@ -1,7 +1,7 @@
 class DeadDropGame {
     constructor() {
         this.cash = 1000;
-        this.targetAmount = 1000000;
+        this.targetAmount = 1000000; // $1 million
         this.currentQuestion = 0;
         this.currentWager = 0;
         this.answerOptions = [];
@@ -84,31 +84,64 @@ class DeadDropGame {
         const correctTitle = this.correctAnswer.title;
         let options = [correctTitle];
         
-        // Generate 3 fake options
+        // Get categories for the correct answer
+        const categories = await this.getCategories(correctTitle);
+        
+        // Get related articles from these categories
+        const relatedArticles = await this.getRelatedArticles(categories);
+        
+        // Add related articles to options
+        for (let article of relatedArticles) {
+            if (options.length < 4 && article !== correctTitle) {
+                options.push(article);
+            }
+            if (options.length >= 4) break;
+        }
+
+        // If we still need more options, use the extract to generate plausible ones
         while (options.length < 4) {
-            const fakeOption = this.generateFakeOption(correctTitle);
-            if (!options.includes(fakeOption)) {
-                options.push(fakeOption);
+            const plausibleOption = this.generatePlausibleOption(this.correctAnswer.extract);
+            if (!options.includes(plausibleOption)) {
+                options.push(plausibleOption);
             }
         }
 
         return this.shuffleArray(options);
     }
 
-    generateFakeOption(correctTitle) {
-        const words = correctTitle.split(' ');
-        if (words.length > 1) {
-            const indexToChange = Math.floor(Math.random() * words.length);
-            words[indexToChange] = this.getRandomWord();
-        } else {
-            words.push(this.getRandomWord());
+    async getCategories(title) {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            const page = Object.values(data.query.pages)[0];
+            return page.categories ? page.categories.map(cat => cat.title) : [];
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            return [];
         }
-        return words.join(' ');
     }
 
-    getRandomWord() {
-        const words = ['The', 'A', 'Great', 'New', 'Old', 'Big', 'Small', 'Red', 'Blue', 'Green', 'Yellow', 'First', 'Last', 'Hidden', 'Secret', 'Ancient', 'Modern', 'Future', 'Past'];
-        return words[Math.floor(Math.random() * words.length)];
+    async getRelatedArticles(categories) {
+        let articles = [];
+        for (let category of categories) {
+            const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${encodeURIComponent(category)}&cmlimit=5&format=json&origin=*`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                articles = articles.concat(data.query.categorymembers.map(member => member.title));
+            } catch (error) {
+                console.error('Error fetching related articles:', error);
+            }
+            if (articles.length >= 3) break;
+        }
+        return articles;
+    }
+
+    generatePlausibleOption(extract) {
+        const words = extract.split(' ');
+        const randomIndex = Math.floor(Math.random() * (words.length - 2));
+        return words.slice(randomIndex, randomIndex + 3).join(' ');
     }
 
     shuffleArray(array) {
