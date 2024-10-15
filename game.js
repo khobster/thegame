@@ -88,24 +88,26 @@ class DeadDropGame {
 
     async generateAnswerOptions() {
         try {
-            let options = [this.cleanTitle(this.correctAnswer.title)];
+            const correctTitle = this.toTitleCase(this.cleanTitle(this.correctAnswer.title));
+            let options = [correctTitle];
+            const answerType = this.detectAnswerType(this.correctAnswer);
             const keywords = this.extractKeywords(this.correctAnswer.extract);
             
-            // Get related articles from Wikipedia
-            const relatedArticles = await this.getRelatedArticles(keywords);
+            // Get related articles from Wikipedia based on answer type
+            const relatedArticles = await this.getRelatedArticles(keywords, answerType);
             
             // Add related articles to options
             for (let article of relatedArticles) {
                 if (options.length < 4 && this.isDistinctOption(article, options)) {
-                    options.push(this.cleanTitle(article));
+                    options.push(this.toTitleCase(this.cleanTitle(article)));
                 }
             }
 
-            // If we still need more options, generate fake ones
+            // If we still need more options, generate contextual fake ones
             while (options.length < 4) {
-                const fakeOption = this.generateFakeOption(this.correctAnswer, keywords);
+                const fakeOption = this.generateContextualFakeOption(this.correctAnswer, answerType, keywords);
                 if (this.isDistinctOption(fakeOption, options)) {
-                    options.push(fakeOption);
+                    options.push(this.toTitleCase(fakeOption));
                 }
             }
 
@@ -116,14 +118,37 @@ class DeadDropGame {
         }
     }
 
+    detectAnswerType(answer) {
+        const title = answer.title.toLowerCase();
+        const extract = answer.extract.toLowerCase();
+
+        if (/ born | died |politician|actor|actress|singer|athlete|player|author|scientist/.test(extract)) {
+            return 'person';
+        } else if (/city|country|continent|river|mountain|ocean|sea|lake/.test(title) || /located in|capital of/.test(extract)) {
+            return 'place';
+        } else if (/in \d{4}|\d{4}–\d{4}|century|decade|era|period/.test(extract)) {
+            return 'event';
+        } else {
+            return 'concept';
+        }
+    }
+
     extractKeywords(extract) {
         const words = extract.toLowerCase().split(/\W+/);
         const stopWords = new Set(['the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'but']);
         return words.filter(word => word.length > 3 && !stopWords.has(word)).slice(0, 5);
     }
 
-    async getRelatedArticles(keywords) {
-        const searchTerm = keywords.join(' ');
+    async getRelatedArticles(keywords, answerType) {
+        let searchTerm = keywords.join(' ');
+        if (answerType === 'person') {
+            searchTerm += ' biography';
+        } else if (answerType === 'place') {
+            searchTerm += ' location';
+        } else if (answerType === 'event') {
+            searchTerm += ' history';
+        }
+
         const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=10`;
         
         try {
@@ -138,40 +163,54 @@ class DeadDropGame {
         }
     }
 
-    generateFakeOption(correctAnswer, keywords) {
-        const strategies = [
-            () => this.modifyCorrectAnswer(correctAnswer.title),
-            () => this.combineKeywords(keywords),
-            () => this.generateGenericOption()
-        ];
-        
-        return strategies[Math.floor(Math.random() * strategies.length)]();
-    }
-
-    modifyCorrectAnswer(title) {
-        const words = title.split(' ');
-        if (words.length > 1) {
-            const index = Math.floor(Math.random() * words.length);
-            words[index] = this.getRandomWord();
-            return words.join(' ');
+    generateContextualFakeOption(correctAnswer, answerType, keywords) {
+        if (answerType === 'person') {
+            return this.generateFakePerson(correctAnswer, keywords);
+        } else if (answerType === 'place') {
+            return this.generateFakePlace(correctAnswer, keywords);
+        } else if (answerType === 'event') {
+            return this.generateFakeEvent(correctAnswer, keywords);
+        } else {
+            return this.generateFakeConcept(correctAnswer, keywords);
         }
-        return `The ${title}`;
     }
 
-    combineKeywords(keywords) {
-        const shuffled = this.shuffleArray([...keywords]);
-        return shuffled.slice(0, 2).join(' ');
+    generateFakePerson(correctAnswer, keywords) {
+        const firstNames = ['John', 'Jane', 'Michael', 'Emma', 'David', 'Sarah', 'Robert', 'Linda'];
+        const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'];
+        const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+        const professions = ['politician', 'actor', 'scientist', 'author', 'athlete'];
+        const profession = professions[Math.floor(Math.random() * professions.length)];
+        return `${name}, ${profession}`;
     }
 
-    generateGenericOption() {
-        const prefixes = ['The Great', 'Ancient', 'Modern', 'Hidden', 'Secret'];
-        const suffixes = ['Mystery', 'Discovery', 'Phenomenon', 'Theory', 'Expedition'];
-        return `${prefixes[Math.floor(Math.random() * prefixes.length)]} ${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+    generateFakePlace(correctAnswer, keywords) {
+        const prefixes = ['North', 'South', 'East', 'West', 'New', 'Old', 'Upper', 'Lower'];
+        const suffixes = ['ville', 'town', 'city', 'burg', 'land', 'shire'];
+        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+        const baseName = keywords[Math.floor(Math.random() * keywords.length)];
+        return `${prefix} ${this.toTitleCase(baseName)}${suffix}`;
     }
 
-    getRandomWord() {
-        const words = ['Amazing', 'Mysterious', 'Incredible', 'Unusual', 'Extraordinary', 'Remarkable'];
-        return words[Math.floor(Math.random() * words.length)];
+    generateFakeEvent(correctAnswer, keywords) {
+        const eventTypes = ['Battle of', 'Treaty of', 'Discovery of', 'Invention of', 'Revolution in'];
+        const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+        const baseName = keywords[Math.floor(Math.random() * keywords.length)];
+        return `${eventType} ${this.toTitleCase(baseName)}`;
+    }
+
+    generateFakeConcept(correctAnswer, keywords) {
+        const conceptPrefixes = ['Theory of', 'Principle of', 'Law of', 'Phenomenon of'];
+        const prefix = conceptPrefixes[Math.floor(Math.random() * conceptPrefixes.length)];
+        const baseName = keywords[Math.floor(Math.random() * keywords.length)];
+        return `${prefix} ${this.toTitleCase(baseName)}`;
+    }
+
+    toTitleCase(str) {
+        return str.replace(/\w\S*/g, function(txt) {
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        });
     }
 
     isDistinctOption(newOption, existingOptions) {
@@ -226,10 +265,10 @@ class DeadDropGame {
     generateFallbackOptions(correctAnswer) {
         return [
             correctAnswer,
-            this.generateFakeOption(correctAnswer, []),
-            this.generateFakeOption(correctAnswer, []),
-            this.generateFakeOption(correctAnswer, [])
-        ];
+            this.generateContextualFakeOption(correctAnswer, 'concept', []),
+            this.generateContextualFakeOption(correctAnswer, 'concept', []),
+            this.generateContextualFakeOption(correctAnswer, 'concept', [])
+        ].map(option => this.toTitleCase(option));
     }
 
     shuffleArray(array) {
@@ -265,7 +304,7 @@ class DeadDropGame {
 
     handleGuess(userGuess) {
         console.log("User guessed:", userGuess);
-        const cleanedCorrectAnswer = this.cleanTitle(this.correctAnswer.title);
+        const cleanedCorrectAnswer = this.toTitleCase(this.cleanTitle(this.correctAnswer.title));
         console.log("Correct answer:", cleanedCorrectAnswer);
         const isCorrect = userGuess === cleanedCorrectAnswer;
 
