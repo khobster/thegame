@@ -86,41 +86,25 @@ class DeadDropGame {
         throw new Error('Unable to find a suitable article with an image after multiple attempts');
     }
 
-    async getRelatedArticles(extract, count = 5) {
-        const words = extract.split(/\s+/).filter(word => word.length > 4);
-        const searchTerm = words.slice(0, 3).join(' ');
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=${count + 1}`;
-        
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            return data.query.search
-                .map(item => item.title)
-                .filter(title => title !== this.correctAnswer.title)
-                .slice(0, count);
-        } catch (error) {
-            console.error("Error fetching related articles:", error);
-            return [];
-        }
-    }
-
     async generateAnswerOptions() {
         try {
             let options = [this.cleanTitle(this.correctAnswer.title)];
-            const relatedArticles = await this.getRelatedArticles(this.correctAnswer.extract);
+            const answerCategories = this.categorizeAnswer(this.correctAnswer.title);
             
-            // Add related articles, ensuring they're sufficiently different
-            for (let article of relatedArticles) {
-                const cleanedArticle = this.cleanTitle(article);
-                if (this.isDistinctOption(cleanedArticle, options)) {
-                    options.push(cleanedArticle);
+            // Get options matching the specific categories
+            const matchingOptions = await this.getMatchingOptions(answerCategories);
+            
+            // Add options until we have 4
+            for (let option of matchingOptions) {
+                if (options.length < 4 && this.isDistinctOption(option, options)) {
+                    options.push(this.cleanTitle(option));
                 }
                 if (options.length >= 4) break;
             }
 
-            // If we still need more options, generate fake ones
+            // If we still need more options, generate closely related fake ones
             while (options.length < 4) {
-                const fakeOption = this.generateFakeOption(this.correctAnswer.title);
+                const fakeOption = this.generateRelatedFakeOption(this.correctAnswer.title, answerCategories);
                 if (this.isDistinctOption(fakeOption, options)) {
                     options.push(fakeOption);
                 }
@@ -131,6 +115,71 @@ class DeadDropGame {
             console.error("Error generating options:", error);
             return this.generateFallbackOptions(this.correctAnswer.title);
         }
+    }
+
+    categorizeAnswer(answer) {
+        const categories = {
+            type: null,
+            level: null,
+            region: null,
+            sport: null
+        };
+
+        if (/university|college|tigers|terrapins|retrievers|blue hens/i.test(answer)) {
+            categories.type = 'college_team';
+            if (/division i|ncaa division i/i.test(answer)) categories.level = 'division_i';
+            else if (/division ii|ncaa division ii/i.test(answer)) categories.level = 'division_ii';
+            else if (/division iii|ncaa division iii/i.test(answer)) categories.level = 'division_iii';
+        }
+
+        if (/maryland|baltimore|towson/i.test(answer)) categories.region = 'maryland';
+        else if (/delaware/i.test(answer)) categories.region = 'delaware';
+        // Add more regions as needed
+
+        if (/football/i.test(answer)) categories.sport = 'football';
+        else if (/basketball/i.test(answer)) categories.sport = 'basketball';
+        // Add more sports as needed
+
+        return categories;
+    }
+
+    async getMatchingOptions(categories) {
+        // This would ideally use a database or API to fetch real data
+        // For demonstration, we'll use a predefined list
+        const allOptions = [
+            "Towson Tigers",
+            "Maryland Terrapins",
+            "UMBC Retrievers",
+            "Delaware Blue Hens",
+            "Johns Hopkins Blue Jays",
+            "Morgan State Bears",
+            "Navy Midshipmen",
+            "Loyola Greyhounds",
+            "Coppin State Eagles",
+            "Mount St. Mary's Mountaineers"
+        ];
+
+        // Filter options based on categories
+        return allOptions.filter(option => {
+            const optionCategories = this.categorizeAnswer(option);
+            return optionCategories.type === categories.type &&
+                   (optionCategories.level === categories.level || !categories.level) &&
+                   (optionCategories.region === categories.region || !categories.region) &&
+                   (optionCategories.sport === categories.sport || !categories.sport);
+        });
+    }
+
+    generateRelatedFakeOption(correctAnswer, categories) {
+        const regionAdjectives = {
+            'maryland': ['Eastern Shore', 'Central', 'Western', 'Southern'],
+            'delaware': ['Northern', 'Southern', 'Central'],
+            // Add more regions as needed
+        };
+
+        const region = categories.region || 'maryland'; // Default to Maryland if no region specified
+        const adjective = regionAdjectives[region][Math.floor(Math.random() * regionAdjectives[region].length)];
+        
+        return `${adjective} ${correctAnswer}`;
     }
 
     isDistinctOption(newOption, existingOptions) {
@@ -182,15 +231,13 @@ class DeadDropGame {
         return cleanedTitle.trim();
     }
 
-    isGoodOption(title) {
-        const cleanTitle = this.cleanTitle(title);
-        const badPrefixes = ['List of', 'Index of', 'Template:', 'Category:', 'File:', 'Wikipedia'];
-        return !badPrefixes.some(prefix => cleanTitle.startsWith(prefix)) && 
-               cleanTitle.length > 3 &&
-               cleanTitle.length < 50 && 
-               cleanTitle.toLowerCase() !== 'wikipedia' &&
-               !cleanTitle.includes('Wikipedia') &&
-               !/^\d+$/.test(cleanTitle); // Exclude options that are just numbers
+    generateFallbackOptions(correctAnswer) {
+        return [
+            correctAnswer,
+            this.generateFakeOption(correctAnswer),
+            this.generateFakeOption(correctAnswer),
+            this.generateFakeOption(correctAnswer)
+        ];
     }
 
     generateFakeOption(correctAnswer) {
@@ -207,15 +254,6 @@ class DeadDropGame {
             const fakeWords = ['The', 'A', 'An', 'Great', 'Hidden', 'Mysterious', 'Unexpected', 'Secret'];
             return fakeWords[Math.floor(Math.random() * fakeWords.length)] + ' ' + correctAnswer;
         }
-    }
-
-    generateFallbackOptions(correctAnswer) {
-        return [
-            correctAnswer,
-            this.generateFakeOption(correctAnswer),
-            this.generateFakeOption(correctAnswer),
-            this.generateFakeOption(correctAnswer)
-        ];
     }
 
     shuffleArray(array) {
