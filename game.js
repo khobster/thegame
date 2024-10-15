@@ -14,7 +14,74 @@ class DeadDropGame {
         this.wagerInput = document.getElementById('wagerInput');
         this.optionsContainer = document.getElementById('optionsContainer');
 
+        this.addStyles();
         this.showTitleScreen();
+    }
+
+    addStyles() {
+        const styles = `
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #1a1a1a;
+                color: white;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                padding: 20px;
+                box-sizing: border-box;
+            }
+
+            #imageContainer h2 {
+                font-size: 24px;
+                margin-bottom: 20px;
+                text-align: center;
+            }
+
+            #cashDisplay {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+
+            #optionsContainer {
+                width: 80%;
+                max-width: 800px;
+            }
+
+            .option-image {
+                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            }
+
+            #navigationControls button:hover {
+                background-color: #45a049;
+            }
+
+            #wagerInput {
+                margin-top: 20px;
+                padding: 10px;
+                font-size: 16px;
+                width: 100%;
+                max-width: 200px;
+            }
+
+            #placeWagerButton {
+                margin-top: 10px;
+                padding: 10px 20px;
+                font-size: 16px;
+                background-color: #008CBA;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+
+            #placeWagerButton:hover {
+                background-color: #007B9A;
+            }
+        `;
+        document.head.appendChild(document.createElement('style')).textContent = styles;
     }
 
     showTitleScreen() {
@@ -47,6 +114,7 @@ class DeadDropGame {
             this.currentImageIndex = 0;
 
             this.displayQuestionTitle(this.correctAnswer.title);
+            this.setupImageContainer();
             this.displayCurrentImage();
             this.displayNavigationControls();
 
@@ -55,8 +123,9 @@ class DeadDropGame {
             this.wagerInput.value = this.cash;
             this.wagerInput.max = this.cash;
 
-            this.optionsContainer.innerHTML += '<button class="option-button" id="placeWagerButton">Place Wager</button>';
-            document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+            const wagerButton = this.createButton('Place Wager', () => this.handleWager());
+            wagerButton.id = 'placeWagerButton';
+            this.optionsContainer.appendChild(wagerButton);
 
             this.hideLoadingIndicator();
             this.gamePhase = 'wager';
@@ -85,43 +154,58 @@ class DeadDropGame {
     }
 
     displayQuestionTitle(title) {
-        this.imageContainer.innerHTML = `<h2>Which image represents: "${title}"?</h2>`;
+        this.imageContainer.innerHTML = `<h2>"${title}"</h2>`;
+    }
+
+    setupImageContainer() {
+        this.optionsContainer.innerHTML = '';
+        const imageElement = document.createElement('img');
+        imageElement.id = 'currentImage';
+        imageElement.className = 'option-image';
+        imageElement.style.width = '100%';
+        imageElement.style.height = '70vh';
+        imageElement.style.objectFit = 'cover';
+        imageElement.style.borderRadius = '10px';
+        this.optionsContainer.appendChild(imageElement);
     }
 
     displayCurrentImage() {
         const article = this.imageOptions[this.currentImageIndex];
-        const img = document.createElement('img');
-        img.src = article.thumbnail.source;
-        img.alt = article.title;
-        img.className = 'option-image';
-        img.style.width = '100%';
-        img.style.height = 'auto';
-        img.style.maxHeight = '70vh';
-        img.style.objectFit = 'contain';
-        
-        this.optionsContainer.innerHTML = '';
-        this.optionsContainer.appendChild(img);
+        const imageElement = document.getElementById('currentImage');
+        imageElement.src = article.thumbnail.source;
+        imageElement.alt = article.title;
     }
 
     displayNavigationControls() {
-        const prevButton = document.createElement('button');
-        prevButton.textContent = '← Previous';
-        prevButton.addEventListener('click', () => this.navigateImages(-1));
-
-        const nextButton = document.createElement('button');
-        nextButton.textContent = 'Next →';
-        nextButton.addEventListener('click', () => this.navigateImages(1));
-
-        const selectButton = document.createElement('button');
-        selectButton.textContent = 'Select This Image';
-        selectButton.addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
-
         const navigationDiv = document.createElement('div');
+        navigationDiv.id = 'navigationControls';
+        navigationDiv.style.display = 'flex';
+        navigationDiv.style.justifyContent = 'space-between';
+        navigationDiv.style.marginTop = '20px';
+
+        const prevButton = this.createButton('← Previous', () => this.navigateImages(-1));
+        const selectButton = this.createButton('Select This Image', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
+        const nextButton = this.createButton('Next →', () => this.navigateImages(1));
+
         navigationDiv.appendChild(prevButton);
         navigationDiv.appendChild(selectButton);
         navigationDiv.appendChild(nextButton);
 
         this.optionsContainer.appendChild(navigationDiv);
+    }
+
+    createButton(text, onClick) {
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.addEventListener('click', onClick);
+        button.style.padding = '10px 20px';
+        button.style.fontSize = '16px';
+        button.style.borderRadius = '5px';
+        button.style.border = 'none';
+        button.style.backgroundColor = '#4CAF50';
+        button.style.color = 'white';
+        button.style.cursor = 'pointer';
+        return button;
     }
 
     navigateImages(direction) {
@@ -167,6 +251,15 @@ class DeadDropGame {
         const messageBox = document.createElement('div');
         messageBox.id = 'messageBox';
         messageBox.textContent = message;
+        messageBox.style.position = 'fixed';
+        messageBox.style.top = '50%';
+        messageBox.style.left = '50%';
+        messageBox.style.transform = 'translate(-50%, -50%)';
+        messageBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        messageBox.style.color = 'white';
+        messageBox.style.padding = '20px';
+        messageBox.style.borderRadius = '10px';
+        messageBox.style.zIndex = '1000';
         document.body.appendChild(messageBox);
         setTimeout(() => messageBox.remove(), 2000);
     }
