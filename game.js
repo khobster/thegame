@@ -86,19 +86,41 @@ class DeadDropGame {
         throw new Error('Unable to find a suitable article with an image after multiple attempts');
     }
 
+    detectAnswerType(answer) {
+        const title = answer.title.toLowerCase();
+        const extract = answer.extract.toLowerCase();
+
+        if (/ born | died |politician|actor|actress|singer|athlete|player|author|scientist/.test(extract)) {
+            return 'person';
+        } else if (/city|town|village/.test(title) || /is a city|is a town|is a village/.test(extract)) {
+            return 'city';
+        } else if (/country|nation|state/.test(title) || /is a country|is a nation|is a state/.test(extract)) {
+            return 'country';
+        } else if (/animal|species|genus/.test(title) || /is an animal|is a species/.test(extract)) {
+            return 'animal';
+        } else if (/film|movie/.test(title) || /is a film|is a movie/.test(extract)) {
+            return 'movie';
+        } else if (/book|novel/.test(title) || /is a book|is a novel/.test(extract)) {
+            return 'book';
+        } else if (/in \d{4}|\d{4}–\d{4}|century|decade|era|period/.test(extract)) {
+            return 'event';
+        } else {
+            return 'concept';
+        }
+    }
+
     async generateAnswerOptions() {
         try {
             const correctTitle = this.toTitleCase(this.cleanTitle(this.correctAnswer.title));
             let options = [correctTitle];
             const answerType = this.detectAnswerType(this.correctAnswer);
             
-            // Get related articles from Wikipedia based on categories and links
-            const relatedArticles = await this.getRelatedArticles(this.correctAnswer.title, answerType);
+            const relatedItems = await this.getRelatedItems(this.correctAnswer.title, answerType);
             
-            // Add related articles to options
-            for (let article of relatedArticles) {
-                if (options.length < 4 && this.isDistinctOption(article, options) && !article.startsWith("List of")) {
-                    options.push(this.toTitleCase(this.cleanTitle(article)));
+            // Add related items to options
+            for (let item of relatedItems) {
+                if (options.length < 4 && this.isDistinctOption(item, options)) {
+                    options.push(this.toTitleCase(this.cleanTitle(item)));
                 }
                 if (options.length >= 4) break;
             }
@@ -106,7 +128,7 @@ class DeadDropGame {
             // If we still need more options, generate contextual fake ones
             while (options.length < 4) {
                 const fakeOption = this.generateContextualFakeOption(this.correctAnswer, answerType);
-                if (this.isDistinctOption(fakeOption, options) && !fakeOption.startsWith("List of")) {
+                if (this.isDistinctOption(fakeOption, options)) {
                     options.push(this.toTitleCase(fakeOption));
                 }
             }
@@ -118,75 +140,188 @@ class DeadDropGame {
         }
     }
 
-    detectAnswerType(answer) {
-        const title = answer.title.toLowerCase();
-        const extract = answer.extract.toLowerCase();
-
-        if (/ born | died |politician|actor|actress|singer|athlete|player|author|scientist/.test(extract)) {
-            return 'person';
-        } else if (/city|country|continent|river|mountain|ocean|sea|lake/.test(title) || /located in|capital of/.test(extract)) {
-            return 'place';
-        } else if (/in \d{4}|\d{4}–\d{4}|century|decade|era|period/.test(extract)) {
-            return 'event';
-        } else {
-            return 'concept';
-        }
-    }
-
-    async getRelatedArticles(title, answerType) {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories|links&titles=${encodeURIComponent(title)}&format=json&origin=*&cllimit=5&pllimit=5`;
+    async getRelatedItems(title, answerType) {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*&cllimit=50`;
         
         try {
             const response = await fetch(url);
             const data = await response.json();
             const page = Object.values(data.query.pages)[0];
             
-            let relatedTitles = [];
-            
-            // Get titles from categories
             if (page.categories) {
-                const categoryTitles = page.categories.map(cat => cat.title.replace(/^Category:/, '')).filter(cat => !cat.startsWith("List of"));
-                relatedTitles = relatedTitles.concat(categoryTitles);
+                const relevantCategories = this.getRelevantCategories(page.categories, answerType);
+
+                if (relevantCategories.length > 0) {
+                    const itemsInCategory = await this.getItemsInCategory(relevantCategories[0]);
+                    return itemsInCategory.filter(item => item !== title);
+                }
             }
             
-            // Get titles from links
-            if (page.links) {
-                const linkTitles = page.links.map(link => link.title).filter(link => !link.startsWith("List of"));
-                relatedTitles = relatedTitles.concat(linkTitles);
-            }
-            
-            return relatedTitles;
+            return [];
         } catch (error) {
-            console.error("Error fetching related articles:", error);
+            console.error("Error fetching related items:", error);
+            return [];
+        }
+    }
+
+    getRelevantCategories(categories, answerType) {
+        const categoryKeywords = {
+            'person': ['people', 'persons', 'century', 'births', 'deaths'],
+            'city': ['cities', 'towns', 'municipalities'],
+            'country': ['countries', 'nations', 'states'],
+            'animal': ['animals', 'species', 'fauna'],
+            'movie': ['films', 'movies'],
+            'book': ['books', 'novels', 'publications'],
+            'event': ['events', 'history', 'incidents'],
+            'concept': ['concepts', 'theories', 'ideas']
+        };
+
+        const keywords = categoryKeywords[answerType] || categoryKeywords.concept;
+        return categories
+            .map(cat => cat.title)
+            .filter(cat => keywords.some(keyword => cat.toLowerCase().includes(keyword)));
+    }
+
+    async getItemsInCategory(category) {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${encodeURIComponent(category)}&cmlimit=50&format=json&origin=*`;
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.query.categorymembers.map(member => member.title);
+        } catch (error) {
+            console.error("Error fetching items in category:", error);
             return [];
         }
     }
 
     generateContextualFakeOption(correctAnswer, answerType) {
-        const words = correctAnswer.title.split(' ');
-        if (words.length > 2) {
-            // Replace one or two words in the title
-            const numToReplace = Math.floor(Math.random() * 2) + 1;
-            for (let i = 0; i < numToReplace; i++) {
-                const index = Math.floor(Math.random() * words.length);
-                words[index] = this.getRandomWord(answerType);
-            }
-            return words.join(' ');
-        } else {
-            // For short titles, add a word or use a generic fake option
-            return `${this.getRandomWord(answerType)} ${correctAnswer.title}`;
+        switch (answerType) {
+            case 'person':
+                return this.generateFakePerson(correctAnswer.title);
+            case 'city':
+                return this.generateFakeCity(correctAnswer.title);
+            case 'country':
+                return this.generateFakeCountry(correctAnswer.title);
+            case 'animal':
+                return this.generateFakeAnimal(correctAnswer.title);
+            case 'movie':
+                return this.generateFakeMovie(correctAnswer.title);
+            case 'book':
+                return this.generateFakeBook(correctAnswer.title);
+            case 'event':
+                return this.generateFakeEvent(correctAnswer.title);
+            default:
+                return this.generateFakeConcept(correctAnswer.title);
         }
     }
 
-    getRandomWord(answerType) {
-        const wordLists = {
-            person: ['Famous', 'Infamous', 'Legendary', 'Historical', 'Contemporary'],
-            place: ['Ancient', 'Modern', 'Hidden', 'Legendary', 'Mysterious'],
-            event: ['Great', 'Infamous', 'Forgotten', 'Crucial', 'Legendary'],
-            concept: ['Fundamental', 'Advanced', 'Theoretical', 'Practical', 'Revolutionary']
-        };
-        const list = wordLists[answerType] || wordLists.concept;
-        return list[Math.floor(Math.random() * list.length)];
+    generateFakePerson(realName) {
+        const nameParts = realName.split(' ');
+        const firstNames = ['John', 'Jane', 'Michael', 'Emma', 'David', 'Sarah', 'Robert', 'Linda'];
+        const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'];
+        
+        if (nameParts.length > 1) {
+            // Replace either first name or last name
+            if (Math.random() < 0.5) {
+                nameParts[0] = firstNames[Math.floor(Math.random() * firstNames.length)];
+            } else {
+                nameParts[nameParts.length - 1] = lastNames[Math.floor(Math.random() * lastNames.length)];
+            }
+        } else {
+            // If it's a single name, add a random first or last name
+            if (Math.random() < 0.5) {
+                nameParts.unshift(firstNames[Math.floor(Math.random() * firstNames.length)]);
+            } else {
+                nameParts.push(lastNames[Math.floor(Math.random() * lastNames.length)]);
+            }
+        }
+        
+        return nameParts.join(' ');
+    }
+
+    generateFakeCity(realCity) {
+        const prefixes = ['New', 'Old', 'North', 'South', 'East', 'West'];
+        const suffixes = ['ville', 'town', 'burg', 'port', 'field', 'land'];
+        const parts = realCity.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+        }
+        return parts.join(' ');
+    }
+
+    generateFakeCountry(realCountry) {
+        const prefixes = ['New', 'North', 'South', 'East', 'West'];
+        const suffixes = ['land', 'stan', 'ia', 'istan'];
+        const parts = realCountry.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+        }
+        return parts.join(' ');
+    }
+
+    generateFakeAnimal(realAnimal) {
+        const prefixes = ['Giant', 'Dwarf', 'Spotted', 'Striped', 'Red', 'Blue'];
+        const suffixes = ['wolf', 'bear', 'lion', 'tiger', 'fox', 'whale'];
+        const parts = realAnimal.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts[parts.length - 1] = suffixes[Math.floor(Math.random() * suffixes.length)];
+        }
+        return parts.join(' ');
+    }
+
+    generateFakeMovie(realMovie) {
+        const prefixes = ['The', 'A', 'Return of', 'Rise of', 'Fall of'];
+        const suffixes = ['Chronicles', 'Adventures', 'Legacy', 'Revenge', 'Destiny'];
+        const parts = realMovie.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+        }
+        return parts.join(' ');
+    }
+
+    generateFakeBook(realBook) {
+        const prefixes = ['The', 'A', 'Secret of', 'Mystery of', 'Tale of'];
+        const suffixes = ['Chronicles', 'Saga', 'Trilogy', 'Series', 'Opus'];
+        const parts = realBook.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+        }
+        return parts.join(' ');
+    }
+
+    generateFakeEvent(realEvent) {
+        const prefixes = ['Great', 'Second', 'New', 'Modern'];
+        const suffixes = ['Revolution', 'War', 'Reformation', 'Renaissance', 'Uprising'];
+        const parts = realEvent.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+        }
+        return parts.join(' ');
+    }
+
+    generateFakeConcept(realConcept) {
+        const prefixes = ['Advanced', 'Theoretical', 'Applied', 'Fundamental'];
+        const suffixes = ['Theory', 'Principle', 'Paradigm', 'Hypothesis'];
+        const parts = realConcept.split(' ');
+        if (Math.random() < 0.5) {
+            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+        } else {
+            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+        }
+        return parts.join(' ');
     }
 
     toTitleCase(str) {
