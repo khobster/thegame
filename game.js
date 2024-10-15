@@ -89,22 +89,21 @@ class DeadDropGame {
     async generateAnswerOptions() {
         try {
             let options = [this.cleanTitle(this.correctAnswer.title)];
-            const answerCategories = this.categorizeAnswer(this.correctAnswer.title);
+            const keywords = this.extractKeywords(this.correctAnswer.extract);
             
-            // Get options matching the specific categories
-            const matchingOptions = await this.getMatchingOptions(answerCategories);
+            // Get related articles from Wikipedia
+            const relatedArticles = await this.getRelatedArticles(keywords);
             
-            // Add options until we have 4
-            for (let option of matchingOptions) {
-                if (options.length < 4 && this.isDistinctOption(option, options)) {
-                    options.push(this.cleanTitle(option));
+            // Add related articles to options
+            for (let article of relatedArticles) {
+                if (options.length < 4 && this.isDistinctOption(article, options)) {
+                    options.push(this.cleanTitle(article));
                 }
-                if (options.length >= 4) break;
             }
 
-            // If we still need more options, generate closely related fake ones
+            // If we still need more options, generate fake ones
             while (options.length < 4) {
-                const fakeOption = this.generateRelatedFakeOption(this.correctAnswer.title, answerCategories);
+                const fakeOption = this.generateFakeOption(this.correctAnswer, keywords);
                 if (this.isDistinctOption(fakeOption, options)) {
                     options.push(fakeOption);
                 }
@@ -117,69 +116,62 @@ class DeadDropGame {
         }
     }
 
-    categorizeAnswer(answer) {
-        const categories = {
-            type: null,
-            level: null,
-            region: null,
-            sport: null
-        };
-
-        if (/university|college|tigers|terrapins|retrievers|blue hens/i.test(answer)) {
-            categories.type = 'college_team';
-            if (/division i|ncaa division i/i.test(answer)) categories.level = 'division_i';
-            else if (/division ii|ncaa division ii/i.test(answer)) categories.level = 'division_ii';
-            else if (/division iii|ncaa division iii/i.test(answer)) categories.level = 'division_iii';
-        }
-
-        if (/maryland|baltimore|towson/i.test(answer)) categories.region = 'maryland';
-        else if (/delaware/i.test(answer)) categories.region = 'delaware';
-        // Add more regions as needed
-
-        if (/football/i.test(answer)) categories.sport = 'football';
-        else if (/basketball/i.test(answer)) categories.sport = 'basketball';
-        // Add more sports as needed
-
-        return categories;
+    extractKeywords(extract) {
+        const words = extract.toLowerCase().split(/\W+/);
+        const stopWords = new Set(['the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'but']);
+        return words.filter(word => word.length > 3 && !stopWords.has(word)).slice(0, 5);
     }
 
-    async getMatchingOptions(categories) {
-        // This would ideally use a database or API to fetch real data
-        // For demonstration, we'll use a predefined list
-        const allOptions = [
-            "Towson Tigers",
-            "Maryland Terrapins",
-            "UMBC Retrievers",
-            "Delaware Blue Hens",
-            "Johns Hopkins Blue Jays",
-            "Morgan State Bears",
-            "Navy Midshipmen",
-            "Loyola Greyhounds",
-            "Coppin State Eagles",
-            "Mount St. Mary's Mountaineers"
-        ];
-
-        // Filter options based on categories
-        return allOptions.filter(option => {
-            const optionCategories = this.categorizeAnswer(option);
-            return optionCategories.type === categories.type &&
-                   (optionCategories.level === categories.level || !categories.level) &&
-                   (optionCategories.region === categories.region || !categories.region) &&
-                   (optionCategories.sport === categories.sport || !categories.sport);
-        });
-    }
-
-    generateRelatedFakeOption(correctAnswer, categories) {
-        const regionAdjectives = {
-            'maryland': ['Eastern Shore', 'Central', 'Western', 'Southern'],
-            'delaware': ['Northern', 'Southern', 'Central'],
-            // Add more regions as needed
-        };
-
-        const region = categories.region || 'maryland'; // Default to Maryland if no region specified
-        const adjective = regionAdjectives[region][Math.floor(Math.random() * regionAdjectives[region].length)];
+    async getRelatedArticles(keywords) {
+        const searchTerm = keywords.join(' ');
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=10`;
         
-        return `${adjective} ${correctAnswer}`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.query.search
+                .map(item => item.title)
+                .filter(title => title !== this.correctAnswer.title);
+        } catch (error) {
+            console.error("Error fetching related articles:", error);
+            return [];
+        }
+    }
+
+    generateFakeOption(correctAnswer, keywords) {
+        const strategies = [
+            () => this.modifyCorrectAnswer(correctAnswer.title),
+            () => this.combineKeywords(keywords),
+            () => this.generateGenericOption()
+        ];
+        
+        return strategies[Math.floor(Math.random() * strategies.length)]();
+    }
+
+    modifyCorrectAnswer(title) {
+        const words = title.split(' ');
+        if (words.length > 1) {
+            const index = Math.floor(Math.random() * words.length);
+            words[index] = this.getRandomWord();
+            return words.join(' ');
+        }
+        return `The ${title}`;
+    }
+
+    combineKeywords(keywords) {
+        const shuffled = this.shuffleArray([...keywords]);
+        return shuffled.slice(0, 2).join(' ');
+    }
+
+    generateGenericOption() {
+        const prefixes = ['The Great', 'Ancient', 'Modern', 'Hidden', 'Secret'];
+        const suffixes = ['Mystery', 'Discovery', 'Phenomenon', 'Theory', 'Expedition'];
+        return `${prefixes[Math.floor(Math.random() * prefixes.length)]} ${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+    }
+
+    getRandomWord() {
+        const words = ['Amazing', 'Mysterious', 'Incredible', 'Unusual', 'Extraordinary', 'Remarkable'];
+        return words[Math.floor(Math.random() * words.length)];
     }
 
     isDistinctOption(newOption, existingOptions) {
@@ -234,26 +226,10 @@ class DeadDropGame {
     generateFallbackOptions(correctAnswer) {
         return [
             correctAnswer,
-            this.generateFakeOption(correctAnswer),
-            this.generateFakeOption(correctAnswer),
-            this.generateFakeOption(correctAnswer)
+            this.generateFakeOption(correctAnswer, []),
+            this.generateFakeOption(correctAnswer, []),
+            this.generateFakeOption(correctAnswer, [])
         ];
-    }
-
-    generateFakeOption(correctAnswer) {
-        const words = correctAnswer.split(' ').filter(word => word.length > 3);
-        if (words.length > 1) {
-            const index1 = Math.floor(Math.random() * words.length);
-            let index2 = Math.floor(Math.random() * words.length);
-            while (index2 === index1) {
-                index2 = Math.floor(Math.random() * words.length);
-            }
-            [words[index1], words[index2]] = [words[index2], words[index1]];
-            return words.join(' ');
-        } else {
-            const fakeWords = ['The', 'A', 'An', 'Great', 'Hidden', 'Mysterious', 'Unexpected', 'Secret'];
-            return fakeWords[Math.floor(Math.random() * fakeWords.length)] + ' ' + correctAnswer;
-        }
     }
 
     shuffleArray(array) {
