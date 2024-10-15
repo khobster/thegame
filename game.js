@@ -4,9 +4,10 @@ class DeadDropGame {
         this.targetAmount = 1000000; // $1 million
         this.currentQuestion = 0;
         this.currentWager = 0;
-        this.answerOptions = [];
         this.correctAnswer = null;
         this.gamePhase = 'title';
+        this.currentImageIndex = 0;
+        this.imageOptions = [];
 
         this.imageContainer = document.getElementById('imageContainer');
         this.cashDisplay = document.getElementById('cashDisplay');
@@ -35,121 +36,97 @@ class DeadDropGame {
         this.loadNewQuestion();
     }
 
-    loadNewQuestion() {
+    async loadNewQuestion() {
         this.currentQuestion++;
         this.gamePhase = 'loading';
         this.showLoadingIndicator();
 
-        this.getRandomArticle()
-            .then(article => {
-                this.correctAnswer = article;
-                console.log("Correct answer:", article.title);
-                if (article.thumbnail && article.thumbnail.source) {
-                    const img = document.createElement('img');
-                    img.src = article.thumbnail.source;
-                    this.imageContainer.innerHTML = '';
-                    this.imageContainer.appendChild(img);
-                } else {
-                    this.imageContainer.innerHTML = '<p>No image available</p>';
-                }
-
-                this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
-                this.wagerInput.style.display = 'block';
-                this.wagerInput.value = this.cash;
-                this.wagerInput.max = this.cash;
-
-                this.optionsContainer.innerHTML = '<button class="option-button" id="placeWagerButton">Place Wager</button>';
-                document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
-
-                return this.generateAnswerOptions();
-            })
-            .then(options => {
-                this.answerOptions = options;
-                this.hideLoadingIndicator();
-                this.gamePhase = 'wager';
-            })
-            .catch(error => {
-                console.error('Error loading question:', error);
-                this.handleLoadingError();
-            });
-    }
-
-    async getRandomArticle() {
-        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-        const data = await response.json();
-        return data;
-    }
-
-    async generateAnswerOptions() {
-        const correctTitle = this.correctAnswer.title;
-        let options = [correctTitle];
-        
-        // Get categories for the correct answer
-        const categories = await this.getCategories(correctTitle);
-        
-        // Get related articles from these categories
-        const relatedArticles = await this.getRelatedArticles(categories);
-        
-        // Add related articles to options
-        for (let article of relatedArticles) {
-            if (options.length < 4 && article !== correctTitle) {
-                options.push(article);
-            }
-            if (options.length >= 4) break;
-        }
-
-        // If we still need more options, use the extract to generate plausible ones
-        while (options.length < 4) {
-            const plausibleOption = this.generatePlausibleOption(this.correctAnswer.extract);
-            if (!options.includes(plausibleOption)) {
-                options.push(plausibleOption);
-            }
-        }
-
-        return this.shuffleArray(options);
-    }
-
-    async getCategories(title) {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*`;
         try {
-            const response = await fetch(url);
-            const data = await response.json();
-            const page = Object.values(data.query.pages)[0];
-            return page.categories ? page.categories.map(cat => cat.title) : [];
+            this.imageOptions = await this.getRandomArticles(5);
+            this.correctAnswer = this.imageOptions[Math.floor(Math.random() * this.imageOptions.length)];
+            this.currentImageIndex = 0;
+
+            this.displayQuestionTitle(this.correctAnswer.title);
+            this.displayCurrentImage();
+            this.displayNavigationControls();
+
+            this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
+            this.wagerInput.style.display = 'block';
+            this.wagerInput.value = this.cash;
+            this.wagerInput.max = this.cash;
+
+            this.optionsContainer.innerHTML += '<button class="option-button" id="placeWagerButton">Place Wager</button>';
+            document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+
+            this.hideLoadingIndicator();
+            this.gamePhase = 'wager';
         } catch (error) {
-            console.error('Error fetching categories:', error);
-            return [];
+            console.error('Error loading question:', error);
+            this.handleLoadingError();
         }
     }
 
-    async getRelatedArticles(categories) {
-        let articles = [];
-        for (let category of categories) {
-            const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${encodeURIComponent(category)}&cmlimit=5&format=json&origin=*`;
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                articles = articles.concat(data.query.categorymembers.map(member => member.title));
-            } catch (error) {
-                console.error('Error fetching related articles:', error);
+    async getRandomArticles(count) {
+        const articles = [];
+        for (let i = 0; i < count; i++) {
+            const article = await this.getRandomArticle();
+            if (article.thumbnail && article.thumbnail.source) {
+                articles.push(article);
+            } else {
+                i--; // Try again if no image
             }
-            if (articles.length >= 3) break;
         }
         return articles;
     }
 
-    generatePlausibleOption(extract) {
-        const words = extract.split(' ');
-        const randomIndex = Math.floor(Math.random() * (words.length - 2));
-        return words.slice(randomIndex, randomIndex + 3).join(' ');
+    async getRandomArticle() {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        return await response.json();
     }
 
-    shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
+    displayQuestionTitle(title) {
+        this.imageContainer.innerHTML = `<h2>Which image represents: "${title}"?</h2>`;
+    }
+
+    displayCurrentImage() {
+        const article = this.imageOptions[this.currentImageIndex];
+        const img = document.createElement('img');
+        img.src = article.thumbnail.source;
+        img.alt = article.title;
+        img.className = 'option-image';
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        img.style.maxHeight = '70vh';
+        img.style.objectFit = 'contain';
+        
+        this.optionsContainer.innerHTML = '';
+        this.optionsContainer.appendChild(img);
+    }
+
+    displayNavigationControls() {
+        const prevButton = document.createElement('button');
+        prevButton.textContent = '← Previous';
+        prevButton.addEventListener('click', () => this.navigateImages(-1));
+
+        const nextButton = document.createElement('button');
+        nextButton.textContent = 'Next →';
+        nextButton.addEventListener('click', () => this.navigateImages(1));
+
+        const selectButton = document.createElement('button');
+        selectButton.textContent = 'Select This Image';
+        selectButton.addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
+
+        const navigationDiv = document.createElement('div');
+        navigationDiv.appendChild(prevButton);
+        navigationDiv.appendChild(selectButton);
+        navigationDiv.appendChild(nextButton);
+
+        this.optionsContainer.appendChild(navigationDiv);
+    }
+
+    navigateImages(direction) {
+        this.currentImageIndex = (this.currentImageIndex + direction + this.imageOptions.length) % this.imageOptions.length;
+        this.displayCurrentImage();
     }
 
     handleWager() {
@@ -160,22 +137,11 @@ class DeadDropGame {
         }
         this.currentWager = wager;
         this.wagerInput.style.display = 'none';
-        this.showAnswerOptions();
+        this.gamePhase = 'guessing';
     }
 
-    showAnswerOptions() {
-        this.optionsContainer.innerHTML = '';
-        this.answerOptions.forEach(option => {
-            const button = document.createElement('button');
-            button.textContent = option;
-            button.className = 'option-button';
-            button.addEventListener('click', () => this.handleGuess(option));
-            this.optionsContainer.appendChild(button);
-        });
-    }
-
-    handleGuess(userGuess) {
-        const isCorrect = userGuess === this.correctAnswer.title;
+    handleGuess(guessedArticle) {
+        const isCorrect = guessedArticle.pageid === this.correctAnswer.pageid;
 
         if (isCorrect) {
             this.cash += this.currentWager;
@@ -187,7 +153,13 @@ class DeadDropGame {
                 setTimeout(() => this.loadNewQuestion(), 2000);
             }
         } else {
-            this.endGame(false);
+            this.cash -= this.currentWager;
+            if (this.cash <= 0) {
+                this.endGame(false);
+            } else {
+                this.showMessage(`Incorrect. You've lost $${this.currentWager.toLocaleString()}.`);
+                setTimeout(() => this.loadNewQuestion(), 2000);
+            }
         }
     }
 
