@@ -1,7 +1,7 @@
 class DeadDropGame {
     constructor() {
         this.cash = 1000;
-        this.targetAmount = 1000000; // $1 million
+        this.targetAmount = 1000000;
         this.currentQuestion = 0;
         this.currentWager = 0;
         this.answerOptions = [];
@@ -40,15 +40,18 @@ class DeadDropGame {
         this.gamePhase = 'loading';
         this.showLoadingIndicator();
 
-        this.getRandomArticleWithImage()
+        this.getRandomArticle()
             .then(article => {
                 this.correctAnswer = article;
                 console.log("Correct answer:", article.title);
-                console.log("Extract:", article.extract);
-                const img = document.createElement('img');
-                img.src = article.thumbnail.source;
-                this.imageContainer.innerHTML = '';
-                this.imageContainer.appendChild(img);
+                if (article.thumbnail && article.thumbnail.source) {
+                    const img = document.createElement('img');
+                    img.src = article.thumbnail.source;
+                    this.imageContainer.innerHTML = '';
+                    this.imageContainer.appendChild(img);
+                } else {
+                    this.imageContainer.innerHTML = '<p>No image available</p>';
+                }
 
                 this.cashDisplay.textContent = `Cash: $${this.cash.toLocaleString()}`;
                 this.wagerInput.style.display = 'block';
@@ -71,321 +74,41 @@ class DeadDropGame {
             });
     }
 
-    async getRandomArticleWithImage(maxAttempts = 10) {
-        for (let i = 0; i < maxAttempts; i++) {
-            try {
-                const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-                const data = await response.json();
-                if (data.thumbnail && data.thumbnail.source && data.extract && data.extract.length > 50 && !data.title.startsWith("List of")) {
-                    return data;
-                }
-            } catch (error) {
-                console.error('Error fetching random article:', error);
-            }
-        }
-        throw new Error('Unable to find a suitable article with an image after multiple attempts');
-    }
-
-    detectAnswerType(answer) {
-        const title = answer.title.toLowerCase();
-        const extract = answer.extract.toLowerCase();
-
-        if (/ born | died |politician|actor|actress|singer|athlete|player|author|scientist/.test(extract)) {
-            return 'person';
-        } else if (/city|town|village/.test(title) || /is a city|is a town|is a village/.test(extract)) {
-            return 'city';
-        } else if (/country|nation|state/.test(title) || /is a country|is a nation|is a state/.test(extract)) {
-            return 'country';
-        } else if (/animal|species|genus/.test(title) || /is an animal|is a species/.test(extract)) {
-            return 'animal';
-        } else if (/film|movie/.test(title) || /is a film|is a movie/.test(extract)) {
-            return 'movie';
-        } else if (/book|novel/.test(title) || /is a book|is a novel/.test(extract)) {
-            return 'book';
-        } else if (/in \d{4}|\d{4}–\d{4}|century|decade|era|period/.test(extract)) {
-            return 'event';
-        } else {
-            return 'concept';
-        }
+    async getRandomArticle() {
+        const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const data = await response.json();
+        return data;
     }
 
     async generateAnswerOptions() {
-        try {
-            const correctTitle = this.toTitleCase(this.cleanTitle(this.correctAnswer.title));
-            let options = [correctTitle];
-            const answerType = this.detectAnswerType(this.correctAnswer);
-            
-            const relatedItems = await this.getRelatedItems(this.correctAnswer.title, answerType);
-            
-            // Add related items to options
-            for (let item of relatedItems) {
-                if (options.length < 4 && this.isDistinctOption(item, options)) {
-                    options.push(this.toTitleCase(this.cleanTitle(item)));
-                }
-                if (options.length >= 4) break;
-            }
-
-            // If we still need more options, generate contextual fake ones
-            while (options.length < 4) {
-                const fakeOption = this.generateContextualFakeOption(this.correctAnswer, answerType);
-                if (this.isDistinctOption(fakeOption, options)) {
-                    options.push(this.toTitleCase(fakeOption));
-                }
-            }
-
-            return this.shuffleArray(options);
-        } catch (error) {
-            console.error("Error generating options:", error);
-            return this.generateFallbackOptions(this.correctAnswer.title);
-        }
-    }
-
-    async getRelatedItems(title, answerType) {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories&titles=${encodeURIComponent(title)}&format=json&origin=*&cllimit=50`;
+        const correctTitle = this.correctAnswer.title;
+        let options = [correctTitle];
         
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            const page = Object.values(data.query.pages)[0];
-            
-            if (page.categories) {
-                const relevantCategories = this.getRelevantCategories(page.categories, answerType);
-
-                if (relevantCategories.length > 0) {
-                    const itemsInCategory = await this.getItemsInCategory(relevantCategories[0]);
-                    return itemsInCategory.filter(item => item !== title);
-                }
-            }
-            
-            return [];
-        } catch (error) {
-            console.error("Error fetching related items:", error);
-            return [];
-        }
-    }
-
-    getRelevantCategories(categories, answerType) {
-        const categoryKeywords = {
-            'person': ['people', 'persons', 'century', 'births', 'deaths'],
-            'city': ['cities', 'towns', 'municipalities'],
-            'country': ['countries', 'nations', 'states'],
-            'animal': ['animals', 'species', 'fauna'],
-            'movie': ['films', 'movies'],
-            'book': ['books', 'novels', 'publications'],
-            'event': ['events', 'history', 'incidents'],
-            'concept': ['concepts', 'theories', 'ideas']
-        };
-
-        const keywords = categoryKeywords[answerType] || categoryKeywords.concept;
-        return categories
-            .map(cat => cat.title)
-            .filter(cat => keywords.some(keyword => cat.toLowerCase().includes(keyword)));
-    }
-
-    async getItemsInCategory(category) {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${encodeURIComponent(category)}&cmlimit=50&format=json&origin=*`;
-        
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            return data.query.categorymembers.map(member => member.title);
-        } catch (error) {
-            console.error("Error fetching items in category:", error);
-            return [];
-        }
-    }
-
-    generateContextualFakeOption(correctAnswer, answerType) {
-        switch (answerType) {
-            case 'person':
-                return this.generateFakePerson(correctAnswer.title);
-            case 'city':
-                return this.generateFakeCity(correctAnswer.title);
-            case 'country':
-                return this.generateFakeCountry(correctAnswer.title);
-            case 'animal':
-                return this.generateFakeAnimal(correctAnswer.title);
-            case 'movie':
-                return this.generateFakeMovie(correctAnswer.title);
-            case 'book':
-                return this.generateFakeBook(correctAnswer.title);
-            case 'event':
-                return this.generateFakeEvent(correctAnswer.title);
-            default:
-                return this.generateFakeConcept(correctAnswer.title);
-        }
-    }
-
-    generateFakePerson(realName) {
-        const nameParts = realName.split(' ');
-        const firstNames = ['John', 'Jane', 'Michael', 'Emma', 'David', 'Sarah', 'Robert', 'Linda'];
-        const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'];
-        
-        if (nameParts.length > 1) {
-            // Replace either first name or last name
-            if (Math.random() < 0.5) {
-                nameParts[0] = firstNames[Math.floor(Math.random() * firstNames.length)];
-            } else {
-                nameParts[nameParts.length - 1] = lastNames[Math.floor(Math.random() * lastNames.length)];
-            }
-        } else {
-            // If it's a single name, add a random first or last name
-            if (Math.random() < 0.5) {
-                nameParts.unshift(firstNames[Math.floor(Math.random() * firstNames.length)]);
-            } else {
-                nameParts.push(lastNames[Math.floor(Math.random() * lastNames.length)]);
+        // Generate 3 fake options
+        while (options.length < 4) {
+            const fakeOption = this.generateFakeOption(correctTitle);
+            if (!options.includes(fakeOption)) {
+                options.push(fakeOption);
             }
         }
-        
-        return nameParts.join(' ');
+
+        return this.shuffleArray(options);
     }
 
-    generateFakeCity(realCity) {
-        const prefixes = ['New', 'Old', 'North', 'South', 'East', 'West'];
-        const suffixes = ['ville', 'town', 'burg', 'port', 'field', 'land'];
-        const parts = realCity.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
+    generateFakeOption(correctTitle) {
+        const words = correctTitle.split(' ');
+        if (words.length > 1) {
+            const indexToChange = Math.floor(Math.random() * words.length);
+            words[indexToChange] = this.getRandomWord();
         } else {
-            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+            words.push(this.getRandomWord());
         }
-        return parts.join(' ');
+        return words.join(' ');
     }
 
-    generateFakeCountry(realCountry) {
-        const prefixes = ['New', 'North', 'South', 'East', 'West'];
-        const suffixes = ['land', 'stan', 'ia', 'istan'];
-        const parts = realCountry.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
-        } else {
-            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
-        }
-        return parts.join(' ');
-    }
-
-    generateFakeAnimal(realAnimal) {
-        const prefixes = ['Giant', 'Dwarf', 'Spotted', 'Striped', 'Red', 'Blue'];
-        const suffixes = ['wolf', 'bear', 'lion', 'tiger', 'fox', 'whale'];
-        const parts = realAnimal.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
-        } else {
-            parts[parts.length - 1] = suffixes[Math.floor(Math.random() * suffixes.length)];
-        }
-        return parts.join(' ');
-    }
-
-    generateFakeMovie(realMovie) {
-        const prefixes = ['The', 'A', 'Return of', 'Rise of', 'Fall of'];
-        const suffixes = ['Chronicles', 'Adventures', 'Legacy', 'Revenge', 'Destiny'];
-        const parts = realMovie.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
-        } else {
-            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
-        }
-        return parts.join(' ');
-    }
-
-    generateFakeBook(realBook) {
-        const prefixes = ['The', 'A', 'Secret of', 'Mystery of', 'Tale of'];
-        const suffixes = ['Chronicles', 'Saga', 'Trilogy', 'Series', 'Opus'];
-        const parts = realBook.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
-        } else {
-            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
-        }
-        return parts.join(' ');
-    }
-
-    generateFakeEvent(realEvent) {
-        const prefixes = ['Great', 'Second', 'New', 'Modern'];
-        const suffixes = ['Revolution', 'War', 'Reformation', 'Renaissance', 'Uprising'];
-        const parts = realEvent.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
-        } else {
-            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
-        }
-        return parts.join(' ');
-    }
-
-    generateFakeConcept(realConcept) {
-        const prefixes = ['Advanced', 'Theoretical', 'Applied', 'Fundamental'];
-        const suffixes = ['Theory', 'Principle', 'Paradigm', 'Hypothesis'];
-        const parts = realConcept.split(' ');
-        if (Math.random() < 0.5) {
-            parts.unshift(prefixes[Math.floor(Math.random() * prefixes.length)]);
-        } else {
-            parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
-        }
-        return parts.join(' ');
-    }
-
-    toTitleCase(str) {
-        return str.replace(/\w\S*/g, function(txt) {
-            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-        });
-    }
-
-    isDistinctOption(newOption, existingOptions) {
-        return !existingOptions.some(option => 
-            this.calculateSimilarity(newOption, option) > 0.7
-        );
-    }
-
-    calculateSimilarity(str1, str2) {
-        const longer = str1.length > str2.length ? str1 : str2;
-        const shorter = str1.length > str2.length ? str2 : str1;
-        const longerLength = longer.length;
-        if (longerLength === 0) {
-            return 1.0;
-        }
-        return (longerLength - this.editDistance(longer, shorter)) / parseFloat(longerLength);
-    }
-
-    editDistance(s1, s2) {
-        s1 = s1.toLowerCase();
-        s2 = s2.toLowerCase();
-        const costs = new Array();
-        for (let i = 0; i <= s1.length; i++) {
-            let lastValue = i;
-            for (let j = 0; j <= s2.length; j++) {
-                if (i == 0)
-                    costs[j] = j;
-                else {
-                    if (j > 0) {
-                        let newValue = costs[j - 1];
-                        if (s1.charAt(i - 1) != s2.charAt(j - 1))
-                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                        costs[j - 1] = lastValue;
-                        lastValue = newValue;
-                    }
-                }
-            }
-            if (i > 0)
-                costs[s2.length] = lastValue;
-        }
-        return costs[s2.length];
-    }
-
-    cleanTitle(title) {
-        // Remove leading special characters and spaces
-        let cleanedTitle = title.replace(/^[-–—*.(),\s]+/, '');
-        // Remove trailing parentheses and any spaces before them
-        cleanedTitle = cleanedTitle.replace(/\s*\([^)]*\)\s*$/, '');
-        return cleanedTitle.trim();
-    }
-
-    generateFallbackOptions(correctAnswer) {
-        return [
-            correctAnswer,
-            this.generateContextualFakeOption(correctAnswer, 'concept'),
-            this.generateContextualFakeOption(correctAnswer, 'concept'),
-            this.generateContextualFakeOption(correctAnswer, 'concept')
-        ].map(option => this.toTitleCase(option));
+    getRandomWord() {
+        const words = ['The', 'A', 'Great', 'New', 'Old', 'Big', 'Small', 'Red', 'Blue', 'Green', 'Yellow', 'First', 'Last', 'Hidden', 'Secret', 'Ancient', 'Modern', 'Future', 'Past'];
+        return words[Math.floor(Math.random() * words.length)];
     }
 
     shuffleArray(array) {
@@ -409,7 +132,6 @@ class DeadDropGame {
 
     showAnswerOptions() {
         this.optionsContainer.innerHTML = '';
-        console.log("Showing options:", this.answerOptions);
         this.answerOptions.forEach(option => {
             const button = document.createElement('button');
             button.textContent = option;
@@ -420,10 +142,7 @@ class DeadDropGame {
     }
 
     handleGuess(userGuess) {
-        console.log("User guessed:", userGuess);
-        const cleanedCorrectAnswer = this.toTitleCase(this.cleanTitle(this.correctAnswer.title));
-        console.log("Correct answer:", cleanedCorrectAnswer);
-        const isCorrect = userGuess === cleanedCorrectAnswer;
+        const isCorrect = userGuess === this.correctAnswer.title;
 
         if (isCorrect) {
             this.cash += this.currentWager;
@@ -444,7 +163,6 @@ class DeadDropGame {
         messageBox.id = 'messageBox';
         messageBox.textContent = message;
         document.body.appendChild(messageBox);
-
         setTimeout(() => messageBox.remove(), 2000);
     }
 
