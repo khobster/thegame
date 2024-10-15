@@ -76,7 +76,7 @@ class DeadDropGame {
             try {
                 const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
                 const data = await response.json();
-                if (data.thumbnail && data.thumbnail.source && data.extract && data.extract.length > 50) {
+                if (data.thumbnail && data.thumbnail.source && data.extract && data.extract.length > 50 && !data.title.startsWith("List of")) {
                     return data;
                 }
             } catch (error) {
@@ -91,22 +91,22 @@ class DeadDropGame {
             const correctTitle = this.toTitleCase(this.cleanTitle(this.correctAnswer.title));
             let options = [correctTitle];
             const answerType = this.detectAnswerType(this.correctAnswer);
-            const keywords = this.extractKeywords(this.correctAnswer.extract);
             
-            // Get related articles from Wikipedia based on answer type
-            const relatedArticles = await this.getRelatedArticles(keywords, answerType);
+            // Get related articles from Wikipedia based on categories and links
+            const relatedArticles = await this.getRelatedArticles(this.correctAnswer.title, answerType);
             
             // Add related articles to options
             for (let article of relatedArticles) {
-                if (options.length < 4 && this.isDistinctOption(article, options)) {
+                if (options.length < 4 && this.isDistinctOption(article, options) && !article.startsWith("List of")) {
                     options.push(this.toTitleCase(this.cleanTitle(article)));
                 }
+                if (options.length >= 4) break;
             }
 
             // If we still need more options, generate contextual fake ones
             while (options.length < 4) {
-                const fakeOption = this.generateContextualFakeOption(this.correctAnswer, answerType, keywords);
-                if (this.isDistinctOption(fakeOption, options)) {
+                const fakeOption = this.generateContextualFakeOption(this.correctAnswer, answerType);
+                if (this.isDistinctOption(fakeOption, options) && !fakeOption.startsWith("List of")) {
                     options.push(this.toTitleCase(fakeOption));
                 }
             }
@@ -133,78 +133,60 @@ class DeadDropGame {
         }
     }
 
-    extractKeywords(extract) {
-        const words = extract.toLowerCase().split(/\W+/);
-        const stopWords = new Set(['the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'but']);
-        return words.filter(word => word.length > 3 && !stopWords.has(word)).slice(0, 5);
-    }
-
-    async getRelatedArticles(keywords, answerType) {
-        let searchTerm = keywords.join(' ');
-        if (answerType === 'person') {
-            searchTerm += ' biography';
-        } else if (answerType === 'place') {
-            searchTerm += ' location';
-        } else if (answerType === 'event') {
-            searchTerm += ' history';
-        }
-
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=10`;
+    async getRelatedArticles(title, answerType) {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=categories|links&titles=${encodeURIComponent(title)}&format=json&origin=*&cllimit=5&pllimit=5`;
         
         try {
             const response = await fetch(url);
             const data = await response.json();
-            return data.query.search
-                .map(item => item.title)
-                .filter(title => title !== this.correctAnswer.title);
+            const page = Object.values(data.query.pages)[0];
+            
+            let relatedTitles = [];
+            
+            // Get titles from categories
+            if (page.categories) {
+                const categoryTitles = page.categories.map(cat => cat.title.replace(/^Category:/, '')).filter(cat => !cat.startsWith("List of"));
+                relatedTitles = relatedTitles.concat(categoryTitles);
+            }
+            
+            // Get titles from links
+            if (page.links) {
+                const linkTitles = page.links.map(link => link.title).filter(link => !link.startsWith("List of"));
+                relatedTitles = relatedTitles.concat(linkTitles);
+            }
+            
+            return relatedTitles;
         } catch (error) {
             console.error("Error fetching related articles:", error);
             return [];
         }
     }
 
-    generateContextualFakeOption(correctAnswer, answerType, keywords) {
-        if (answerType === 'person') {
-            return this.generateFakePerson(correctAnswer, keywords);
-        } else if (answerType === 'place') {
-            return this.generateFakePlace(correctAnswer, keywords);
-        } else if (answerType === 'event') {
-            return this.generateFakeEvent(correctAnswer, keywords);
+    generateContextualFakeOption(correctAnswer, answerType) {
+        const words = correctAnswer.title.split(' ');
+        if (words.length > 2) {
+            // Replace one or two words in the title
+            const numToReplace = Math.floor(Math.random() * 2) + 1;
+            for (let i = 0; i < numToReplace; i++) {
+                const index = Math.floor(Math.random() * words.length);
+                words[index] = this.getRandomWord(answerType);
+            }
+            return words.join(' ');
         } else {
-            return this.generateFakeConcept(correctAnswer, keywords);
+            // For short titles, add a word or use a generic fake option
+            return `${this.getRandomWord(answerType)} ${correctAnswer.title}`;
         }
     }
 
-    generateFakePerson(correctAnswer, keywords) {
-        const firstNames = ['John', 'Jane', 'Michael', 'Emma', 'David', 'Sarah', 'Robert', 'Linda'];
-        const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'];
-        const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
-        const professions = ['politician', 'actor', 'scientist', 'author', 'athlete'];
-        const profession = professions[Math.floor(Math.random() * professions.length)];
-        return `${name}, ${profession}`;
-    }
-
-    generateFakePlace(correctAnswer, keywords) {
-        const prefixes = ['North', 'South', 'East', 'West', 'New', 'Old', 'Upper', 'Lower'];
-        const suffixes = ['ville', 'town', 'city', 'burg', 'land', 'shire'];
-        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-        const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-        const baseName = keywords[Math.floor(Math.random() * keywords.length)];
-        return `${prefix} ${this.toTitleCase(baseName)}${suffix}`;
-    }
-
-    generateFakeEvent(correctAnswer, keywords) {
-        const eventTypes = ['Battle of', 'Treaty of', 'Discovery of', 'Invention of', 'Revolution in'];
-        const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-        const baseName = keywords[Math.floor(Math.random() * keywords.length)];
-        return `${eventType} ${this.toTitleCase(baseName)}`;
-    }
-
-    generateFakeConcept(correctAnswer, keywords) {
-        const conceptPrefixes = ['Theory of', 'Principle of', 'Law of', 'Phenomenon of'];
-        const prefix = conceptPrefixes[Math.floor(Math.random() * conceptPrefixes.length)];
-        const baseName = keywords[Math.floor(Math.random() * keywords.length)];
-        return `${prefix} ${this.toTitleCase(baseName)}`;
+    getRandomWord(answerType) {
+        const wordLists = {
+            person: ['Famous', 'Infamous', 'Legendary', 'Historical', 'Contemporary'],
+            place: ['Ancient', 'Modern', 'Hidden', 'Legendary', 'Mysterious'],
+            event: ['Great', 'Infamous', 'Forgotten', 'Crucial', 'Legendary'],
+            concept: ['Fundamental', 'Advanced', 'Theoretical', 'Practical', 'Revolutionary']
+        };
+        const list = wordLists[answerType] || wordLists.concept;
+        return list[Math.floor(Math.random() * list.length)];
     }
 
     toTitleCase(str) {
@@ -265,9 +247,9 @@ class DeadDropGame {
     generateFallbackOptions(correctAnswer) {
         return [
             correctAnswer,
-            this.generateContextualFakeOption(correctAnswer, 'concept', []),
-            this.generateContextualFakeOption(correctAnswer, 'concept', []),
-            this.generateContextualFakeOption(correctAnswer, 'concept', [])
+            this.generateContextualFakeOption(correctAnswer, 'concept'),
+            this.generateContextualFakeOption(correctAnswer, 'concept'),
+            this.generateContextualFakeOption(correctAnswer, 'concept')
         ].map(option => this.toTitleCase(option));
     }
 
