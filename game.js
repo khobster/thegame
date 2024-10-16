@@ -47,8 +47,8 @@ class DeadDropGame {
                 text-shadow: 3px 3px 0 #FF4500;
             }
             h2 {
-                font-family: 'Permanent Marker', cursive;
-                font-size: 28px;
+                font-family: 'Bangers', cursive;
+                font-size: 32px;
                 margin-bottom: 20px;
                 color: #00CED1;
             }
@@ -95,6 +95,7 @@ class DeadDropGame {
                 height: 300px;
                 margin-bottom: 20px;
                 perspective: 1000px;
+                cursor: pointer;
             }
             .image-container img {
                 max-width: 100%;
@@ -104,6 +105,9 @@ class DeadDropGame {
                 box-shadow: 0 4px 8px rgba(0,0,0,0.5);
                 transition: transform 0.6s;
                 transform-style: preserve-3d;
+            }
+            #wagerSection, #selectSection {
+                transition: opacity 0.3s ease-in-out;
             }
         `;
         document.head.appendChild(document.createElement('style')).textContent = styles;
@@ -142,47 +146,26 @@ class DeadDropGame {
 
     displayGameScreen() {
         this.gameContainer.innerHTML = `
-            <h2>"${this.correctAnswer.title}"</h2>
+            <h2>${this.correctAnswer.title}</h2>
             <div id="cashDisplay">Cash: $${this.cash.toLocaleString()}</div>
             <div class="image-container">
                 <img id="currentImage" src="${this.imageOptions[this.currentImageIndex].thumbnail.source}" alt="Wikipedia Image">
             </div>
-            <button id="selectImageButton" class="button" disabled>Select This Image</button>
-            <div>
+            <div id="wagerSection">
                 <input type="number" id="wagerInput" placeholder="Enter wager" min="1" max="${this.cash}" value="${this.cash}">
                 <button id="placeWagerButton" class="button">Place Wager</button>
             </div>
+            <div id="selectSection" style="display: none;">
+                <button id="selectImageButton" class="button">Select This Image</button>
+            </div>
         `;
 
-        document.getElementById('selectImageButton').addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
+        document.getElementById('currentImage').addEventListener('click', () => this.navigateImages(1));
         document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
+        document.getElementById('selectImageButton').addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
 
-        this.setupSwipeListeners();
         this.currentWager = this.cash;
         this.hideLoadingIndicator();
-    }
-
-    setupSwipeListeners() {
-        let startX;
-        const image = document.getElementById('currentImage');
-
-        const handleStart = (event) => {
-            startX = event.type.includes('mouse') ? event.clientX : event.touches[0].clientX;
-        };
-
-        const handleEnd = (event) => {
-            const endX = event.type.includes('mouse') ? event.clientX : event.changedTouches[0].clientX;
-            const diff = startX - endX;
-
-            if (Math.abs(diff) > 50) { // Minimum swipe distance
-                this.navigateImages(diff > 0 ? 1 : -1);
-            }
-        };
-
-        image.addEventListener('mousedown', handleStart);
-        image.addEventListener('touchstart', handleStart);
-        image.addEventListener('mouseup', handleEnd);
-        image.addEventListener('touchend', handleEnd);
     }
 
     navigateImages(direction) {
@@ -204,9 +187,8 @@ class DeadDropGame {
             return;
         }
         this.currentWager = wager;
-        wagerInput.disabled = true;
-        document.getElementById('placeWagerButton').disabled = true;
-        document.getElementById('selectImageButton').disabled = false;
+        document.getElementById('wagerSection').style.display = 'none';
+        document.getElementById('selectSection').style.display = 'block';
         this.showMessage(`Wager placed: $${this.currentWager.toLocaleString()}`);
     }
 
