@@ -10,14 +10,22 @@ class DeadDropGame {
         this.imageOptions = [];
 
         this.gameContainer = document.getElementById('gameContainer');
+        this.addFonts();
         this.addStyles();
         this.showTitleScreen();
+    }
+
+    addFonts() {
+        const link = document.createElement('link');
+        link.href = 'https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Roboto:wght@400;700&display=swap';
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
     }
 
     addStyles() {
         const styles = `
             body {
-                font-family: Arial, sans-serif;
+                font-family: 'Roboto', sans-serif;
                 background-color: #1a1a1a;
                 color: white;
                 display: flex;
@@ -32,67 +40,70 @@ class DeadDropGame {
                 text-align: center;
             }
             h1 {
-                font-size: 48px;
+                font-family: 'Bangers', cursive;
+                font-size: 64px;
                 margin-bottom: 20px;
+                color: #FFD700;
+                text-shadow: 3px 3px 0 #FF4500;
             }
             h2 {
-                font-size: 24px;
+                font-family: 'Permanent Marker', cursive;
+                font-size: 28px;
                 margin-bottom: 20px;
+                color: #00CED1;
             }
             .button {
-                background-color: #4CAF50;
+                background-color: #FF6347;
                 border: none;
                 color: white;
                 padding: 15px 32px;
                 text-align: center;
                 text-decoration: none;
                 display: inline-block;
-                font-size: 16px;
+                font-size: 18px;
                 margin: 4px 2px;
                 cursor: pointer;
-                border-radius: 5px;
+                border-radius: 25px;
+                font-family: 'Permanent Marker', cursive;
+                transition: all 0.3s;
+            }
+            .button:hover {
+                background-color: #FF4500;
+                transform: scale(1.05);
+            }
+            .button:disabled {
+                background-color: #cccccc;
+                cursor: not-allowed;
             }
             #cashDisplay {
                 font-size: 24px;
                 margin-bottom: 20px;
+                font-family: 'Bangers', cursive;
+                color: #32CD32;
             }
             #wagerInput {
                 font-size: 18px;
                 padding: 10px;
                 width: 100px;
                 margin-right: 10px;
+                border-radius: 15px;
+                border: 2px solid #FF6347;
             }
             .image-container {
                 position: relative;
                 width: 100%;
                 height: 300px;
                 margin-bottom: 20px;
+                perspective: 1000px;
             }
             .image-container img {
                 max-width: 100%;
                 max-height: 100%;
                 object-fit: contain;
-            }
-            .nav-button {
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                background-color: rgba(76, 175, 80, 0.5);
-                color: white;
-                border: none;
-                padding: 10px;
-                cursor: pointer;
-                font-size: 24px;
-                border-radius: 50%;
-            }
-            .nav-button:hover {
-                background-color: rgba(76, 175, 80, 0.8);
-            }
-            #prevButton {
-                left: 10px;
-            }
-            #nextButton {
-                right: 10px;
+                border-radius: 15px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+                transition: transform 0.6s;
+                transform-style: preserve-3d;
             }
         `;
         document.head.appendChild(document.createElement('style')).textContent = styles;
@@ -135,30 +146,54 @@ class DeadDropGame {
             <div id="cashDisplay">Cash: $${this.cash.toLocaleString()}</div>
             <div class="image-container">
                 <img id="currentImage" src="${this.imageOptions[this.currentImageIndex].thumbnail.source}" alt="Wikipedia Image">
-                <button id="prevButton" class="nav-button">←</button>
-                <button id="nextButton" class="nav-button">→</button>
             </div>
-            <button id="selectImageButton" class="button">Select This Image</button>
+            <button id="selectImageButton" class="button" disabled>Select This Image</button>
             <div>
                 <input type="number" id="wagerInput" placeholder="Enter wager" min="1" max="${this.cash}" value="${this.cash}">
                 <button id="placeWagerButton" class="button">Place Wager</button>
             </div>
         `;
 
-        document.getElementById('prevButton').addEventListener('click', () => this.navigateImages(-1));
-        document.getElementById('nextButton').addEventListener('click', () => this.navigateImages(1));
         document.getElementById('selectImageButton').addEventListener('click', () => this.handleGuess(this.imageOptions[this.currentImageIndex]));
         document.getElementById('placeWagerButton').addEventListener('click', () => this.handleWager());
 
-        // Set default wager to full amount
+        this.setupSwipeListeners();
         this.currentWager = this.cash;
-
         this.hideLoadingIndicator();
     }
 
+    setupSwipeListeners() {
+        let startX;
+        const image = document.getElementById('currentImage');
+
+        const handleStart = (event) => {
+            startX = event.type.includes('mouse') ? event.clientX : event.touches[0].clientX;
+        };
+
+        const handleEnd = (event) => {
+            const endX = event.type.includes('mouse') ? event.clientX : event.changedTouches[0].clientX;
+            const diff = startX - endX;
+
+            if (Math.abs(diff) > 50) { // Minimum swipe distance
+                this.navigateImages(diff > 0 ? 1 : -1);
+            }
+        };
+
+        image.addEventListener('mousedown', handleStart);
+        image.addEventListener('touchstart', handleStart);
+        image.addEventListener('mouseup', handleEnd);
+        image.addEventListener('touchend', handleEnd);
+    }
+
     navigateImages(direction) {
-        this.currentImageIndex = (this.currentImageIndex + direction + this.imageOptions.length) % this.imageOptions.length;
-        document.getElementById('currentImage').src = this.imageOptions[this.currentImageIndex].thumbnail.source;
+        const image = document.getElementById('currentImage');
+        image.style.transform = `rotateY(${direction > 0 ? '' : '-'}90deg)`;
+        
+        setTimeout(() => {
+            this.currentImageIndex = (this.currentImageIndex + direction + this.imageOptions.length) % this.imageOptions.length;
+            image.src = this.imageOptions[this.currentImageIndex].thumbnail.source;
+            image.style.transform = 'rotateY(0deg)';
+        }, 150);
     }
 
     handleWager() {
@@ -171,15 +206,11 @@ class DeadDropGame {
         this.currentWager = wager;
         wagerInput.disabled = true;
         document.getElementById('placeWagerButton').disabled = true;
+        document.getElementById('selectImageButton').disabled = false;
         this.showMessage(`Wager placed: $${this.currentWager.toLocaleString()}`);
     }
 
     handleGuess(guessedArticle) {
-        if (document.getElementById('placeWagerButton').disabled === false) {
-            this.showMessage('Please confirm your wager first!');
-            return;
-        }
-
         const isCorrect = guessedArticle.pageid === this.correctAnswer.pageid;
 
         if (isCorrect) {
